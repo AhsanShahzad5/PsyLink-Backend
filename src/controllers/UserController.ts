@@ -6,7 +6,7 @@ import bcryptjs from 'bcryptjs'
 
 const signUpUser = async (req:Request, res:Response) => {
     try {
-        const { email, password , role} = req.body;
+        const { name ,email, password , role} = req.body;
         //check if user exists , by looking for email "or" username
         const user = await User.findOne({
             $or: [{ email }]
@@ -21,6 +21,7 @@ const signUpUser = async (req:Request, res:Response) => {
 
         // now create a new user
         const newUser = new User({
+            name ,
             email,
             password: hashedPassword,
             role: role
@@ -31,6 +32,7 @@ const signUpUser = async (req:Request, res:Response) => {
             generateTokenAndSetCookie(newUser._id, res);
             res.status(201).json({
                 _id: newUser._id,
+                name: newUser.name,
                 email: newUser.email,
                 role: newUser.role,
             })
@@ -72,4 +74,14 @@ const loginUser = async (req: Request, res: Response) => {
     }
 };
 
-export {signUpUser, loginUser}
+const logoutUser = async (req: Request, res: Response) => {
+    try {
+        //clear the cookie
+        res.cookie("jwt", " ", { maxAge: 1 /*1 milisecond */ });
+        res.status(200).json({ message: "User logged out successfully" });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message })
+        console.log(`Error in logout : ${(error as Error).message}`);
+    }
+}
+export {signUpUser, loginUser,logoutUser}

@@ -1,6 +1,11 @@
 import mongoose,{Schema} from 'mongoose';
 
 const userSchema = new Schema({
+  name: {
+    type: String,
+    required: true,
+    unique: true,
+  },
   email: {
     type: String,
     required: true,
@@ -13,7 +18,7 @@ const userSchema = new Schema({
   },
   role: {
     type: String,
-    enum: ['Patient', 'Doctor', 'Admin'],
+    enum: ['Patient', 'Doctor', 'Admin','patient', 'doctor', 'admin'],
     required: true,
   },
 });
