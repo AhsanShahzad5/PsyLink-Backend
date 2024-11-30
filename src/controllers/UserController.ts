@@ -64,6 +64,7 @@ const loginUser = async (req: Request, res: Response) => {
         //show who the user is after logging in
         res.status(201).json({
             _id: user._id,
+            name: user.name,
             email: user.email,
             role: user.role
         });
@@ -73,6 +74,7 @@ const loginUser = async (req: Request, res: Response) => {
         console.log(`Error in logging in user: ${(error as Error).message}`);
     }
 };
+
 
 const logoutUser = async (req: Request, res: Response) => {
     try {
