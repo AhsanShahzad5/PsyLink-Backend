@@ -6,7 +6,10 @@ import DoctorRoutes from './routes/DoctorRoutes';
 
 //will un-comment db stuff after finalzing a url for mongo
 
-//import connectToMongo from '../db';
+import connectToMongo from '../db';
+import AdminRoutes from './routes/AdminRoutes';
+import User from './models/UserModel';
+import UserRoutes from './routes/UserRoutes';
 
 const app = express()
 const PORT = process.env.PORT || 5000;
@@ -25,7 +28,7 @@ app.use(express.json({ limit: "50mb" }))
 
 
 //connection to database
-//connectToMongo()
+connectToMongo()
 
 
 
@@ -35,8 +38,10 @@ app.get('/', async (req: Request, res: Response) => {
 
 
 //routes
+app.use('/api/user', UserRoutes)
 app.use('/api/patient', PatientRoutes)
 app.use('/api/doctor', DoctorRoutes)
+app.use('/api/admin', AdminRoutes)
 
 
 
