@@ -1,8 +1,10 @@
 import express from "express";
 import { test } from "../controllers/DoctorController";
+const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
+
 const router = express.Router();
 
-router.get('/test' , test);
+router.route('/test').get(isAuthenticated,authorizeRoles("admin"), test);
 
 
 //export
