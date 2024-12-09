@@ -10,6 +10,9 @@ import connectToMongo from '../db';
 import AdminRoutes from './routes/AdminRoutes';
 import User from './models/UserModel';
 import UserRoutes from './routes/UserRoutes';
+const cookieParser = require("cookie-parser")
+
+const errorMiddleware = require('./middlewares/error');
 
 const app = express()
 const PORT = process.env.PORT || 5000;
@@ -25,6 +28,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "50mb" }))
+
+app.use(cookieParser());
 
 
 //connection to database
@@ -43,8 +48,22 @@ app.use('/api/patient', PatientRoutes)
 app.use('/api/doctor', DoctorRoutes)
 app.use('/api/admin', AdminRoutes)
 
+//error middleware
+app.use(errorMiddleware);
 
 
-app.listen(PORT, () => {
+
+const server = app.listen(PORT, () => {
     console.log(`Example app listening on port http://localhost:${PORT}`)
 })
+
+
+//unhandled Promise Rejection
+process.on("unhandledRejection", (err:any) => {
+    console.log(`Error: ${err.message}`);
+    console.log(`Shutting down the server due to Unhandled Promise Rejection`);
+
+    server.close( ()=> {
+        process.exit(1);
+    });
+});
