@@ -2,13 +2,14 @@ import express, { NextFunction, Request, Response } from 'express';
 import generateTokenAndSetCookie from '../utils/generateTokenAndSetCookie';
 import User from '../models/UserModel';
 import bcryptjs from 'bcryptjs'
+import "dotenv/config"
 const ErrorHandler = require('../utils/errorhandler');
 const catchAsyncErrors = require("../middlewares/catchAsyncErrors");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 
-exports.signUpUser = catchAsyncErrors(async (req:Request, res:Response, next:NextFunction) => {
+const signUpUser = catchAsyncErrors(async (req:Request, res:Response, next:NextFunction) => {
     
     const { name ,email, password , role} = req.body;
 
@@ -52,7 +53,7 @@ exports.signUpUser = catchAsyncErrors(async (req:Request, res:Response, next:Nex
 
 })
 
-exports.loginUser = catchAsyncErrors(async (req: Request, res: Response, next:NextFunction) => {
+const loginUser = catchAsyncErrors(async (req: Request, res: Response, next:NextFunction) => {
     
     const { email, password, role } = req.body;
     const user = await User.findOne({ email, role });
@@ -81,7 +82,7 @@ exports.loginUser = catchAsyncErrors(async (req: Request, res: Response, next:Ne
 })
 
 
-exports.logoutUser = catchAsyncErrors(async (req: Request, res: Response) => {
+const logoutUser = catchAsyncErrors(async (req: Request, res: Response) => {
     
     
     res.cookie("jwt", " ", { maxAge: 1 /*1 milisecond */ });
@@ -93,50 +94,49 @@ exports.logoutUser = catchAsyncErrors(async (req: Request, res: Response) => {
 
 //when click on forgot password
 
-exports.forgotPassword = catchAsyncErrors( async (req:any,res:any,next:any) => {
-
-    const user = await User.findOne({email: req.body.email}); 
-
-    if(!user){
-        return next( new ErrorHandler("User not found" , 404));
+const forgotPassword = catchAsyncErrors(async (req: any, res: any, next: any) => {
+    const user = await User.findOne({ email: req.body.email });
+  
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
     }
-
-    const resetToken = user.getResetPasswordToken();     
-
-    await user.save({validateBeforeSave : false});   
-
-    const resetPasswordUrl = `${req.protocol}://${req.get("host")}/api/user/password/reset/${resetToken}`;      
-
-    const message = `Your password reset token is :- \n\n  ${resetPasswordUrl}  \n\n  If you have not requested this email then, please ignore it`;   //jo bheje ge email men
-
-    try{
-        await sendEmail({             
-            email : user.email,  
-            subject : `PSYLINK Account Password Revovery`,   
-            message, 
-        });
-
-        res.status(200).json({
-            success:true,
-            message : `Email send to ${user.email} successfully`,
-        })
+  
+    const resetToken = user.getResetPasswordToken();
+  
+    await user.save({ validateBeforeSave: false });
+  
+    // Updated to point to the frontend reset password page
+    const resetPasswordUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+  
+    const message = `Your password reset token is:\n\n${resetPasswordUrl}\n\nIf you have not requested this email, please ignore it.`;
+  
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: `PSYLINK Account Password Recovery`,
+        message,
+      });
+  
+      res.status(200).json({
+        success: true,
+        message: `Email sent to ${user.email} successfully`,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Error in forgotPassword:", error.message);
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+  
+        await user.save({ validateBeforeSave: false });
+  
+        return next(new ErrorHandler("Failed to send email", 500));
+      } else {
+        console.error("Unknown error occurred:", error);
+        return next(new ErrorHandler("An unexpected error occurred", 500));
+      }
     }
-    catch (error) {
-        if (error instanceof Error) {
-            console.error("Error in forgotPassword:", error.message);
-            user.resetPasswordToken = undefined;
-            user.resetPasswordExpire = undefined;
-    
-            await user.save({ validateBeforeSave: false });
-    
-            return next(new ErrorHandler("Failed to send email", 500));
-        } else {
-            console.error("Unknown error occurred:", error);
-            return next(new ErrorHandler("An unexpected error occurred", 500));
-        }
-    }
-})
-
+  });
+  
 
 
 
@@ -144,7 +144,7 @@ exports.forgotPassword = catchAsyncErrors( async (req:any,res:any,next:any) => {
 
 //ResetPassword after getting link on gmail
 
-exports.resetPassword = catchAsyncErrors( async (req:any,res:any,next:any) => {
+const resetPassword = catchAsyncErrors( async (req:any,res:any,next:any) => {
 
     
     const resetPasswordToken = crypto.createHash("sha256").update(req.params.token).digest("hex");          
@@ -185,6 +185,4 @@ exports.resetPassword = catchAsyncErrors( async (req:any,res:any,next:any) => {
     });
 });
 
-
-
-
+export { signUpUser, loginUser, logoutUser, forgotPassword, resetPassword };
