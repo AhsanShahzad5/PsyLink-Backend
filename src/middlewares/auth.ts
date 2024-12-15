@@ -20,6 +20,8 @@ exports.isAuthenticated = catchAsyncErrors(async (req: any, res: any, next: any)
 
     req.user =  await User.findById(decodedData.id); // Assign user details to req.user
 
+    //console.log(req.user)
+
     next();
 });
 
