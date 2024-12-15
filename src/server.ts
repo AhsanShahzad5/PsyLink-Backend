@@ -64,7 +64,7 @@ app.use(errorMiddleware);
 
 
 const server = app.listen(PORT, () => {
-    console.log(`Example app listening on port http://localhost:${PORT}`)
+    console.log(`PSYLINK BACKEND listening on port http://localhost:${PORT}`)
 })
 
 
