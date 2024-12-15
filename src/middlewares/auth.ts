@@ -6,11 +6,13 @@ const jwtLib = require("jsonwebtoken"); // Rename the imported jsonwebtoken modu
 import User from "../models/UserModel";
 
 exports.isAuthenticated = catchAsyncErrors(async (req: any, res: any, next: any) => {
-    console.log("Cookies: ", req.cookies);
+    
+    console.log('Cookies:', req.cookies.token);
+    console.log('Authorization header:', req.headers.authorization);
 
-    const { token: token } = req.cookies; // Rename the destructured jwt to token
-
-    console.log(token);
+    // const { token: token } = req.cookies; // Rename the destructured jwt to token
+    const token = req.cookies.token ; // Safely destructure cookies
+    // console.log(token);
 
     if (!token) {
         return next(new ErrorHandler("Please Login to access this resource", 401));

@@ -14,6 +14,7 @@ const test = (req: Request, res: Response) => {
 const submitPersonalDetails = async (req: any, res: any) => {
     try {
         const { fullName, dateOfBirth, gender, country, city, phoneNo, image } = req.body;
+        
         const userId = req.user._id;
 
         // Check if the authenticated user has the "doctor" role

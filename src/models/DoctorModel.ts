@@ -31,7 +31,7 @@ const DoctorSchema = new Schema({
         cnicNumber: { type: String, required: true },
         availableHours: [
             {
-                day: { type: String, required: true }, // e.g., 'Monday'
+                // day: { type: String, required: true }, // e.g., 'Monday'
                 startTime: { type: String, required: true }, // e.g., '09:00'
                 endTime: { type: String, required: true },   // e.g., '17:00'
             },
@@ -68,7 +68,7 @@ const DoctorSchema = new Schema({
             ],
         },
     ],
-    
+
     // Appointments
     appointments: [
         {
