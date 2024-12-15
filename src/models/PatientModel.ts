@@ -9,13 +9,17 @@ const PatientSchema = new Schema({
   },
 
   // Personal Details
-//   personalDetails: {
-//     fullName: { type: String, required: true },
-//     dateOfBirth: { type: Date, required: false },
-//     gender: { type: String, enum: ['Male', 'Female', 'Other'], required: false },
-//     phoneNo: { type: String, required: false },
-//     image: { type: String, required: false }, // URL for profile image
-//   },
+  personalInformation: {
+    fullName: { type: String, required: false },
+    age: { type: Number, required: false },
+    gender: { type: String, enum: ['Male', 'Female', 'Other'], required: false },
+    disability: { type: String, default: null },
+    country: { type: String, required: false },
+    city: { type: String, required: false },
+    phoneNo: { type: String, required: false },
+    image: { type: String, required: false }, // URL for profile image
+  },
+
 
   // Appointments
   appointments: {
@@ -38,6 +42,33 @@ const PatientSchema = new Schema({
       },
     ],
   },
+  doctorPreference: {
+    type: String,
+    enum: ['Psychiatrist', 'Psychologist', 'None'],
+    default: 'None',
+  },
+  dailyMood: [
+    {
+      date: { type: Date, required: true },
+      mood: { type: String, required: true },
+    },
+  ],
+  programs: {
+    applied: [{ type: Schema.Types.ObjectId, ref: 'Program' }],
+    previous: [{ type: Schema.Types.ObjectId, ref: 'Program' }],
+  },
+  notes: [
+    {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Note',default: []
+    },
+  ],
+  files: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: 'File',
+    },
+  ],
 
   createdAt: { type: Date, default: Date.now },
 });

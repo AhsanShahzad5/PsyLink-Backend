@@ -4,7 +4,7 @@ import User from '../models/UserModel';
 import bcryptjs from 'bcryptjs'
 import Doctor from '../models/DoctorModel';
 import Patient from '../models/PatientModel';
-
+import Note from '../models/NotesModel';
 
 const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to patient' });
@@ -69,7 +69,117 @@ const bookAppointment = async (req:any, res:any) => {
     }
 };
 
+//NOTES CONTROLLERS
+export const addNote = async (req: Request, res: Response) => {
+  try {
+    const { patientId, title, content } = req.body;
+    
+    if (!patientId || !title || !content) {
+      return res.status(400).json({ message: 'Patient ID, title, and content are required.' });
+    }
 
+    // Create a new note
+    const newNote = await Note.create({ title, content });
+
+    // Find the patient and add the note reference
+    const patient = await Patient.findOne({ userId: patientId });
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found.' });
+    }
+
+    patient.notes.push(newNote._id);
+    await patient.save();
+
+    res.status(201).json({ message: 'Note added successfully.', note: newNote });
+  } catch (error) {
+    console.error('Error adding note:', error);
+    res.status(500).json({ message: 'An error occurred while adding the note.' });
+  }
+};
+
+// **Edit an Existing Note**
+export const editNote = async (req: Request, res: Response) => {
+  try {
+    const { noteId, title, content } = req.body;
+    console.log("Received request body:", req.body);
+    if (!noteId || (!title && !content)) {
+      return res.status(400).json({ message: 'Note ID and at least one field to update are required.' });
+    }
+
+    // Find the note by ID and update it
+    const updatedNote = await Note.findByIdAndUpdate(
+      noteId,
+      { title, content },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedNote) {
+      return res.status(404).json({ message: 'Note not found.' });
+    }
+
+    res.status(200).json({ message: 'Note updated successfully.', note: updatedNote });
+  } catch (error) {
+    console.error('Error editing note:', error);
+    res.status(500).json({ message: 'An error occurred while editing the note.' });
+  }
+};
+
+// **Delete a Note**
+export const deleteNote = async (req: Request, res: Response) => {
+  try {
+    const { patientId, noteId } = req.body;
+
+    if (!patientId || !noteId) {
+      return res.status(400).json({ message: 'Patient ID and Note ID are required.' });
+    }
+
+    // Find the patient and remove the note reference
+    const patient = await Patient.findOne({ userId: patientId });
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found.' });
+    }
+
+    patient.notes = patient.notes.filter((id: any) => id.toString() !== noteId);
+    await patient.save();
+
+    // Remove the note from the Note collection
+    const deletedNote = await Note.findByIdAndDelete(noteId);
+    if (!deletedNote) {
+      return res.status(404).json({ message: 'Note not found.' });
+    }
+
+    res.status(200).json({ message: 'Note deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting note:', error);
+    res.status(500).json({ message: 'An error occurred while deleting the note.' });
+  }
+};
+
+//get all notes
+export const getAllNotes = async (req: Request, res: Response) => {
+  try {
+    const { patientId } = req.params;
+
+    if (!patientId) {
+      return res.status(400).json({ message: 'Patient ID is required.' });
+    }
+
+    // Find the patient
+    const patient = await Patient.findOne({ userId: patientId }).populate('notes');
+
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found.' });
+    }
+
+    res.status(200).json({
+      message: 'Notes retrieved successfully.',
+      notes: patient.notes,
+    });
+  } catch (error) {
+    console.error('Error fetching notes:', error);
+    res.status(500).json({ message: 'An error occurred while retrieving notes.' });
+  }
+};
 
 // const updateAppointmentsStatus = async (req: any, res: any) => {
 //     try {
