@@ -3,6 +3,7 @@
 import express, { Request, Response } from 'express';
 import generateTokenAndSetCookie from '../utils/generateTokenAndSetCookie';
 import Admin from '../models/AdminModel';
+import Doctor from '../models/DoctorModel';
 
 const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to doctor' });
@@ -35,4 +36,24 @@ const loginAdmin = async (req: Request, res: Response) => {
     }
 };
 
-export {test, loginAdmin}
+
+const getPendingDoctors = async (req: any, res: any) => {
+    
+    const pendingDoctors = await Doctor.find({ status: 'pending' }).select('-password'); // Exclude sensitive fields
+    res.status(200).json(pendingDoctors);
+};
+
+const verifyDoctor = async (req: any, res: any) => {
+    const doctorId = req.params.id;
+
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+
+    doctor.status = 'verified';
+    await doctor.save();
+
+    res.status(200).json({ message: 'Doctor verified successfully' });
+};
+
+
+export {test, loginAdmin, getPendingDoctors, verifyDoctor}

@@ -36,14 +36,20 @@ const signUpUser = catchAsyncErrors(async (req:Request, res:Response, next:NextF
         const token = jwt.sign({id:newUser._id }, process.env.JWT_SECRET, {expiresIn: process.env.JWT_EXPIRE});
 
 
-        res.status(201).cookie("token", token, {
+        res
+        .status(201)
+        .cookie("token", token, {
             expires: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
             httpOnly: true,
-        }).json({
+        })
+        .set("Authorization", `Bearer ${token}`)
+        .json({
             _id: newUser._id,
             name: newUser.name,
             email: newUser.email,
             role: newUser.role,
+            token
+            
            
         })
     } else {
@@ -65,19 +71,24 @@ const loginUser = catchAsyncErrors(async (req: Request, res: Response, next:Next
 
     // generateTokenAndSetCookie(user._id, res);
 
-        const token = jwt.sign({id:user._id }, process.env.JWT_SECRET, {expiresIn: process.env.JWT_EXPIRE});
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
 
-
-        res
-            .status(201)
-            .cookie("token", token, { expires: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), httpOnly: true, })
-            .json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-                
-    });
+    res
+      .status(200)
+      .cookie("token", token, {
+        expires: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+        httpOnly: true, // Secure the cookie (accessible only by the server)
+        
+      })
+      .set("Authorization", `Bearer ${token}`) // Set token in the Authorization header as well
+      .json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token,
+      });
+    
 
 })
 
