@@ -3,6 +3,9 @@ import cors from 'cors'
 import "dotenv/config"
 import PatientRoutes from './routes/PatientRoute'
 import DoctorRoutes from './routes/DoctorRoutes';
+import PsyncRoutes from './routes/PsyncRoutes';
+
+import { v2 as cloudinary } from 'cloudinary'
 
 //will un-comment db stuff after finalzing a url for mongo
 
@@ -35,6 +38,12 @@ app.use(cookieParser());
 //connection to database
 connectToMongo()
 
+//cloudinary config
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 
 app.get('/', async (req: Request, res: Response) => {
@@ -47,6 +56,7 @@ app.use('/api/user', UserRoutes)
 app.use('/api/patient', PatientRoutes)
 app.use('/api/doctor', DoctorRoutes)
 app.use('/api/admin', AdminRoutes)
+app.use('/api/psync', PsyncRoutes)
 
 //error middleware
 app.use(errorMiddleware);
@@ -59,11 +69,11 @@ const server = app.listen(PORT, () => {
 
 
 //unhandled Promise Rejection
-process.on("unhandledRejection", (err:any) => {
+process.on("unhandledRejection", (err: any) => {
     console.log(`Error: ${err.message}`);
     console.log(`Shutting down the server due to Unhandled Promise Rejection`);
 
-    server.close( ()=> {
+    server.close(() => {
         process.exit(1);
     });
 });
