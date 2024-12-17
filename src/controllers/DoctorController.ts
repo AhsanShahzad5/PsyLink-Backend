@@ -26,7 +26,8 @@ const submitPersonalDetails = async (req: any, res: any) => {
         let doctor = await Doctor.findOne({ userId });
 
         if (!doctor) {
-            doctor = new Doctor({ userId }); // Create a new doctor record
+            const userEmail = req.user.email; // Assuming `req.user` has the email
+            doctor = new Doctor({ userId, email: userEmail }); // Include email
         }
 
         // Update personal details
@@ -62,9 +63,11 @@ const submitProfessionalDetails = async (req: any, res: any) => {
     // Find or create the doctor record
     let doctor = await Doctor.findOne({ userId });
 
+
     if (!doctor) {
-        doctor = new Doctor({ userId }); 
-    }
+            const userEmail = req.user.email; // Assuming `req.user` has the email
+            doctor = new Doctor({ userId, email: userEmail }); // Include email
+        }
 
     const fullName = doctor.personalDetails?.fullName || '';
 
@@ -93,10 +96,14 @@ const checkVerificationStatus = async (req: any, res: any) => {
 
     // Find or create the doctor record
     let doctor = await Doctor.findOne({ userId });
-    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+    if (!doctor) {
+        const userEmail = req.user.email; // Assuming `req.user` has the email
+        doctor = new Doctor({ userId, email: userEmail }); // Include email
+    }
 
     res.status(200).json({ status: doctor.status });
 };
+
 
 const setupClinic = async (req: any, res: any) => {
     const userId = req.user._id;
@@ -113,8 +120,15 @@ const setupClinic = async (req: any, res: any) => {
     }
         const fullName = doctor.personalDetails?.fullName || '';
         const image = doctor.personalDetails?.fullName || '';
+        const city = doctor.personalDetails?.city || '';
+        const country = doctor.personalDetails?.country || '';
         const specialisation = doctor.professionalDetails?.specialisation || '';
         const educationBackground = doctor.professionalDetails?.educationalBackground || '';
+        const startTime = doctor.professionalDetails?.availableHours?.[0]?.startTime || '';
+        const endTime = doctor.professionalDetails?.availableHours?.[0]?.endTime || '';
+        const consultationFee = doctor.professionalDetails?.consultationFee || 0;
+        
+
 
         if (!fullName || !specialisation || !educationBackground || !image) {
             return res.status(400).json({
@@ -123,14 +137,53 @@ const setupClinic = async (req: any, res: any) => {
         }
 
         // Use availableHours and consultationFee from professionalDetails if present
-        const consultationFee = doctor.professionalDetails?.consultationFee || 0;
 
 
-    doctor.clinic = { fullName, specialisation, educationBackground, image, consultationFee };
+    doctor.clinic = { fullName, specialisation, educationBackground, image, consultationFee, city, country, startTime, endTime };
     await doctor.save();
 
     res.status(200).json({ message: 'Clinic setup successfully' });
 };
+
+
+const getClinicDetails = async (req: any, res: any) => {
+    const userId = req.user._id;
+
+    if (req.user.role.toLowerCase() !== 'doctor') {
+        return res.status(403).json({ message: 'Only doctors can access clinic data' });
+    }
+
+    // Find the doctor associated with the user
+    const doctor = await Doctor.findOne({ userId });
+
+    if (!doctor) {
+        return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    // Check if clinic data exists
+    if (!doctor.clinic) {
+        return res.status(400).json({ message: 'Clinic data is not set up yet' });
+    }
+
+    // Extract clinic data
+    const { fullName, specialisation, educationBackground, image, consultationFee, city, country, startTime, endTime } =
+        doctor.clinic;
+
+    res.status(200).json({
+        clinic: {
+            fullName,
+            specialisation,
+            educationBackground,
+            image,
+            consultationFee,
+            city,
+            country,
+            startTime,
+            endTime,
+        },
+    });
+};
+
 
 
 const setAvailableSlots = async (req:any, res:any) => {
@@ -230,4 +283,4 @@ const markSlotsAsBusy = async (req: any, res: any) => {
 
 
 
-export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus,setupClinic, setAvailableSlots, markSlotsAsBusy }
+export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus,setupClinic, setAvailableSlots, markSlotsAsBusy, getClinicDetails }
