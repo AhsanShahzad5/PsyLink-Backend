@@ -1,4 +1,5 @@
 import express from "express";
+import { getUserDetails } from "../controllers/UserController";
 const { loginUser, logoutUser, signUpUser ,forgotPassword, resetPassword} = require("../controllers/UserController");
 const router = express.Router();
 
@@ -21,6 +22,8 @@ router.post("/logout", logoutUser);
 router.post("/password/forgot", forgotPassword);
 
 router.put("/password/reset/:token", resetPassword);
+
+router.get('/userDetails/:userId' , getUserDetails);
 
 
 

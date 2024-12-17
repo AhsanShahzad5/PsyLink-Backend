@@ -196,4 +196,33 @@ const resetPassword = catchAsyncErrors( async (req:any,res:any,next:any) => {
     });
 });
 
-export { signUpUser, loginUser, logoutUser, forgotPassword, resetPassword };
+const getUserDetails = async (req: Request, res: Response) => {
+  try {
+    // Extract userId from request params
+    const { userId } = req.params;
+
+    // Find user by ID in the database
+    const user = await User.findById(userId);
+
+    // Check if user exists
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Return user details (exclude sensitive fields like password if needed)
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      
+    });
+  } catch (err: any) {
+    // Handle errors
+    console.error("Error fetching user details:", err.message);
+    res.status(500).json({ error: "An error occurred while fetching user details" });
+  }
+};
+
+
+
+export { signUpUser, loginUser, logoutUser, forgotPassword, resetPassword , getUserDetails};
