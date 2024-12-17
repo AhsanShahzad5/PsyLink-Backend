@@ -56,34 +56,31 @@ const CreatePost = async (req:Request, res:Response) => {
   };
 
 //get all posts from the database with the user details
-const GetAllPosts = async (req:Request, res:Response) => {
-    try {
-      const posts = await Post.find();
+const GetAllPosts = async (req: Request, res: Response) => {
+  try {
+      const posts = await Post.find().sort({ createdAt: -1 });;
+      // res.json(posts)
+
       const postsWithUserDetails = await Promise.all(
-        posts.map(async (post) => {
-          const user = await User.findById(post.userId
-            );
-            return {
-                _id: post._id,
-                title: post.title,
-                description: post.description,
-                img: post.img,
-                user: {
-                    _id: user?._id,
-                    name: user?.name,
-                    email: user?.email,
-                },
-                };
-            }
-        )
-        );
-        res.json(postsWithUserDetails);
-    }
-    catch (err:any) {
-        res.status(500).json({ error: err.message });
-        console.error("Error in getting posts:", err.message);
-    }
-}
+          posts.map(async (post) => {
+              const user = await User.findById(post.userId);
+              return {
+                  ...post.toObject(), // Spread all fields from the Post object
+                  user: {
+                      _id: user?._id,
+                      name: user?.name,
+                      email: user?.email,
+                  },
+              };
+          })
+      );
+      res.json(postsWithUserDetails);
+  } catch (err: any) {
+      res.status(500).json({ error: err.message });
+      console.error("Error in getting posts:", err.message);
+  }
+};
+
 
 //a delete post controller function 
 const DeletePost = async (req: Request, res: Response) => {
@@ -230,6 +227,41 @@ const commentOnPost = async (req: Request, res: Response) => {
     }
 }
 
+//get all comments on a post
+const getPostComments = async (req: Request, res: Response) => {
+    try {
+         const postId = req.params.postId;
+         
+        //const postId = req.body.postId;
+        const post = await Post.findById(postId);
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+        res.json(post.comments);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+        console.error("Error in getting post comments:", err.message);
+    }
+}
 
 
-export {test , CreatePost, GetAllPosts , DeletePost , GetMyPosts , getMyFavoritedPosts , addPostToFavorite , likeUnlikePost , commentOnPost};
+// search a post by title 
+const searchPostByTitle = async (req: Request, res: Response) => {
+    try {
+        const { title } = req.body;
+        const posts = await Post.find({ title: { $regex: title, $options: "i" } });
+        res.json(posts);
+    } catch (err) {
+        res.status(500).json({ error: (err as Error).message });
+        console.error("Error in searching post:", (err as Error).message);
+    }
+}
+
+
+// Controller to get user details by userId
+
+
+
+
+
+export {test , CreatePost, GetAllPosts , DeletePost , GetMyPosts , getMyFavoritedPosts , addPostToFavorite , likeUnlikePost , commentOnPost , searchPostByTitle, getPostComments};
