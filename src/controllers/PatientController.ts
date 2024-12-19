@@ -50,7 +50,8 @@ const bookAppointment = async (req:any, res:any) => {
 
         let patient = await Patient.findOne({ userId });
         if (!patient) {
-           patient = new Patient({ userId });
+            const userEmail = req.user.email; 
+           patient = new Patient({ userId, email: userEmail });
         }
 
         // Add to patient's upcoming appointments
