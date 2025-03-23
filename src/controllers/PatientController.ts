@@ -11,9 +11,25 @@ const test = (req: Request, res: Response) => {
 }
 
 const getVerifiedDoctors = async (req: any, res: any) => {
-    const verifiedDoctors = await Doctor.find({ status: 'verified' }).select('clinic').select('availability');
-    res.status(200).json(verifiedDoctors);
+  try {
+      const verifiedDoctors = await Doctor.find({ status: 'verified' })
+          .select('clinic availability')
+          .lean();
+
+      const filteredDoctors = verifiedDoctors.map(doctor => ({
+          ...doctor,
+          availability: doctor.availability.map(day => ({
+              ...day,
+              slots: day.slots.filter(slot => slot.status === 'available') // Sirf "available" slots show hongi
+          })).filter(day => day.slots.length > 0)
+      }));
+
+      res.status(200).json(filteredDoctors);
+  } catch (error) {
+      res.status(500).json("ERROR");
+  }
 };
+
 
 const bookAppointment = async (req:any, res:any) => {
     try {
