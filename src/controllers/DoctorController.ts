@@ -147,6 +147,7 @@ const setupClinic = async (req: any, res: any) => {
 
 
 const getClinicDetails = async (req: any, res: any) => {
+
     const userId = req.user._id;
 
     if (req.user.role.toLowerCase() !== 'doctor') {
@@ -187,60 +188,120 @@ const getClinicDetails = async (req: any, res: any) => {
 
 
 const setAvailableSlots = async (req:any, res:any) => {
+
     try {
         const userId = req.user._id;
 
-        const { date, slots } = req.body; // slots: [{ time: "09:00-10:00", status: "available" }]
-
         if (req.user.role.toLowerCase() !== 'doctor') {
-            return res.status(403).json({ message: 'Only doctors can set availability' });
+            return res.status(403).json({ message: 'Only doctors can access clinic data' });
         }
 
-        const doctor = await Doctor.findOne({ userId });
-        if (!doctor || doctor.status !== 'verified') {
-            return res.status(400).json({ message: 'Doctor must be verified to set availability' });
+        // Find the doctor associated with the user
+        const doctor = await Doctor.findOne({ userId }).select("clinic availability");
+
+        if (!doctor) {
+            return res.status(404).json({ message: 'Doctor not found' });
         }
 
-        // Find or create availability for the date
-        const existingAvailability = doctor.availability.find(avail => avail.date === date);
-        if (existingAvailability) {
-            existingAvailability.slots = slots; // Update slots
-        } else {
-            doctor.availability.push({ date, slots });
+        // Check if clinic data exists
+        if (!doctor.clinic) {
+            return res.status(400).json({ message: 'Clinic data is not set up yet' });
         }
 
-        await doctor.save();
-        res.status(200).json({ message: 'Availability updated successfully' });
+        // Extract clinic data
+        const { fullName, specialisation, educationBackground, image, consultationFee, city, country, startTime, endTime } =
+            doctor.clinic;
+
+        res.status(200).json({
+            clinic: {
+                fullName,
+                specialisation,
+                educationBackground,
+                image,
+                consultationFee,
+                city,
+                country,
+                startTime,
+                endTime,
+            },
+            availability: doctor.availability || [] // ✅ Include availability data
+        });
     } catch (error) {
-        console.error('Error in setAvailableSlots:', error);
-        res.status(500).json({ message: 'An error occurred while setting availability' });
+        console.error("Error fetching clinic details:", error);
+        res.status(500).json({ message: "An error occurred while fetching clinic details." });
     }
 };
 
 
+
+
+const setAvailableSlots = async (req: any, res: any) => {
+    try {
+        const userId = req.user._id;
+        const { availability } = req.body; // Expecting an array of { date, slots }
+
+        if (req.user.role.toLowerCase() !== "doctor") {
+            return res.status(403).json({ message: "Only doctors can set availability" });
+        }
+
+        const doctor = await Doctor.findOne({ userId });
+        if (!doctor || doctor.status !== "verified") {
+            return res.status(400).json({ message: "Doctor must be verified to set availability" });
+        }
+
+        if (!Array.isArray(availability)) {
+            return res.status(400).json({ message: "Invalid data format. Expected an array of availability objects." });
+        }
+
+        // Loop through each availability object in request body
+        availability.forEach(({ date, slots }) => {
+            const existingAvailability = doctor.availability.find(avail => avail.date === date);
+            if (existingAvailability) {
+                // Update slots if date exists
+                existingAvailability.slots = slots.map((slot:any) => ({
+                    time: slot.time,
+                    status: "available", // Always set to available initially
+                }));
+            } else {
+                // Add new date with slots
+                doctor.availability.push({
+                    date,
+                    slots: slots.map((slot:any) => ({
+                        time: slot.time,
+                        status: "available",
+                    })),
+                });
+            }
+        });
+
+        await doctor.save();
+        res.status(200).json({ message: "Availability updated successfully" });
+    } catch (error) {
+        console.error("Error in setAvailableSlots:", error);
+        res.status(500).json({ message: "An error occurred while setting availability" });
+    }
+};
+
 const markSlotsAsBusy = async (req: any, res: any) => {
     try {
         const userId = req.user._id;
-        const schedules = req.body; // Array of schedules { date, times }
+        const { schedules } = req.body;
 
         if (req.user.role.toLowerCase() !== 'doctor') {
-            res.status(403).json({ message: 'Only doctors can mark slots as busy' });
-            return;
+            return res.status(403).json({ message: 'Only doctors can mark slots as busy' });
         }
 
         const doctor = await Doctor.findOne({ userId });
         if (!doctor) {
-            res.status(404).json({ message: 'Doctor not found' });
-            return;
+            return res.status(404).json({ message: 'Doctor not found' });
         }
 
         const results = [];
 
         for (const schedule of schedules) {
-            const date = schedule.date;
-            const times = schedule.times;
-
+            const { date, times } = schedule;
             const availability = doctor.availability.find((avail: any) => avail.date === date);
+
             if (!availability) {
                 results.push({ date, markedBusy: [], alreadyBooked: [], notFound: times });
                 continue;
@@ -248,19 +309,20 @@ const markSlotsAsBusy = async (req: any, res: any) => {
 
             const dateResults: any = {
                 date,
-                markedBusy: [] as any[],
-                alreadyBooked: [] as any[],
-                notFound: [] as any[]
+                markedBusy: [],
+                alreadyBooked: [],
+                notFound: []
             };
 
             for (const time of times) {
                 const slot = availability.slots.find((slot: any) => slot.time === time);
+
                 if (!slot) {
                     dateResults.notFound.push(time);
                 } else if (slot.status === 'booked') {
                     dateResults.alreadyBooked.push(time);
                 } else {
-                    slot.status = 'busy';
+                    slot.status = 'busy'; // ✅ Change status instead of removing slot
                     dateResults.markedBusy.push(time);
                 }
             }
@@ -271,7 +333,7 @@ const markSlotsAsBusy = async (req: any, res: any) => {
         await doctor.save();
 
         res.status(200).json({
-            message: 'Slots processed',
+            message: 'Slots marked as busy successfully',
             results
         });
     } catch (error) {
@@ -279,6 +341,7 @@ const markSlotsAsBusy = async (req: any, res: any) => {
         res.status(500).json({ message: 'An error occurred while marking slots as busy' });
     }
 };
+
 
 
 

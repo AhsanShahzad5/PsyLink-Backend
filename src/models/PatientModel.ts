@@ -7,6 +7,11 @@ const PatientSchema = new Schema({
     ref: 'User',
     required: true,
   },
+  email: {
+    type: String,
+    required: false,
+    unique: true, // Ensure no duplicate emails among doctors
+},
 
   // Personal Details
   personalInformation: {
