@@ -86,6 +86,109 @@ const bookAppointment = async (req:any, res:any) => {
     }
 };
 
+const getBookedAppointments = async (req: any, res: any) => {
+  try {
+    const userId = req.user._id; // **Logged-in patient ka ID**
+    
+    // **Patient fetch karna along with upcoming appointments**
+    const patient = await Patient.findOne({ userId }).lean();
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found." });
+    }
+
+    if (!patient.appointments?.upcoming || patient.appointments.upcoming.length === 0) {
+      return res.status(200).json([]); // No upcoming appointments
+    }
+
+    // **Doctor IDs nikalna upcoming appointments se**
+    const doctorIds = patient.appointments.upcoming.map((appt: any) => appt.doctorId);
+    
+    // **Doctors fetch karna**
+    const doctors = await Doctor.find({ _id: { $in: doctorIds } }).lean();
+    
+    // **Doctor data ko map karna for quick lookup**
+    const doctorMap = doctors.reduce((acc: any, doctor: any) => {
+      acc[doctor._id.toString()] = doctor;
+      return acc;
+    }, {});
+
+    // **Upcoming appointments ko format karna**
+    const bookedAppointments = patient.appointments.upcoming.map((appointment: any) => {
+      const doctor = doctorMap[appointment.doctorId.toString()];
+      if (!doctor) return null;
+    
+      try {
+        // **Extract start time**
+        const [startTime] = appointment.time.split("-").map((t:any) => t.trim());
+    
+        // **Convert to 24-hour format**
+        const formattedTime = convertTo24HourFormat(startTime);
+    
+        // **Construct full datetime string**
+        const appointmentDate = new Date(`${appointment.date}T${formattedTime}:00`);
+    
+        console.log("Parsed Date:", appointmentDate); // Debugging
+    
+        const currentDate = new Date();
+        const status = appointmentDate <= currentDate ? "active" : "upcoming";
+        const joinIn = status === "upcoming" ? getTimeRemaining(appointmentDate) : null;
+    
+        return {
+          id: appointment._id,
+          doctorName: doctor.personalDetails?.fullName || "Unknown Doctor",
+          specialization: doctor.professionalDetails?.specialisation || "General Practitioner",
+          bookedTimeSlot: appointment.time,
+          date: appointment.date,
+          duration: "60 minutes",
+          imageUrl: doctor.personalDetails?.imageUrl || "/default-doctor.png",
+          status,
+          joinIn,
+          meetingLink: appointment.meetingLink || null,
+        };
+      } catch (error) {
+        console.error("Error parsing appointment date:", error);
+        return null;
+      }
+    }).filter(Boolean);
+    
+    
+
+    res.status(200).json(bookedAppointments);
+  } catch (error) {
+    console.error("Error fetching booked appointments:", error);
+    res.status(500).json({ message: "An error occurred while fetching appointments." });
+  }
+};
+
+const convertTo24HourFormat = (time: string) => {
+  const match = time.match(/^(\d{1,2}):?(\d{2})?\s?(AM|PM)?$/i);
+  if (!match) throw new Error(`Invalid time format: ${time}`);
+
+  let hours = parseInt(match[1]);
+  let minutes = match[2] ? parseInt(match[2]) : 0;
+  const period = match[3] ? match[3].toUpperCase() : "";
+
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+};
+
+// **Helper function to calculate remaining time**
+const getTimeRemaining = (appointmentDate: Date) => {
+  const now = new Date();
+  const diff = appointmentDate.getTime() - now.getTime();
+  if (diff <= 0) return "Now";
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (hours > 0) return `${hours} Hours ${minutes} Minutes`;
+  return `${minutes} Minutes`;
+};
+
+
+
 //NOTES CONTROLLERS
 export const addNote = async (req: Request, res: Response) => {
   try {
@@ -245,4 +348,4 @@ export const getAllNotes = async (req: Request, res: Response) => {
 
 
 
-export {test, getVerifiedDoctors, bookAppointment}
+export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments}
