@@ -147,6 +147,48 @@ const setupClinic = async (req: any, res: any) => {
 
 
 const getClinicDetails = async (req: any, res: any) => {
+
+    const userId = req.user._id;
+
+    if (req.user.role.toLowerCase() !== 'doctor') {
+        return res.status(403).json({ message: 'Only doctors can access clinic data' });
+    }
+
+    // Find the doctor associated with the user
+    const doctor = await Doctor.findOne({ userId });
+
+    if (!doctor) {
+        return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    // Check if clinic data exists
+    if (!doctor.clinic) {
+        return res.status(400).json({ message: 'Clinic data is not set up yet' });
+    }
+
+    // Extract clinic data
+    const { fullName, specialisation, educationBackground, image, consultationFee, city, country, startTime, endTime } =
+        doctor.clinic;
+
+    res.status(200).json({
+        clinic: {
+            fullName,
+            specialisation,
+            educationBackground,
+            image,
+            consultationFee,
+            city,
+            country,
+            startTime,
+            endTime,
+        },
+    });
+};
+
+
+
+const setAvailableSlots = async (req:any, res:any) => {
+
     try {
         const userId = req.user._id;
 
