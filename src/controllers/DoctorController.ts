@@ -187,50 +187,50 @@ const getClinicDetails = async (req: any, res: any) => {
 
 
 
-const setAvailableSlots = async (req:any, res:any) => {
+// const setAvailableSlots = async (req:any, res:any) => {
 
-    try {
-        const userId = req.user._id;
+//     try {
+//         const userId = req.user._id;
 
-        if (req.user.role.toLowerCase() !== 'doctor') {
-            return res.status(403).json({ message: 'Only doctors can access clinic data' });
-        }
+//         if (req.user.role.toLowerCase() !== 'doctor') {
+//             return res.status(403).json({ message: 'Only doctors can access clinic data' });
+//         }
 
-        // Find the doctor associated with the user
-        const doctor = await Doctor.findOne({ userId }).select("clinic availability");
+//         // Find the doctor associated with the user
+//         const doctor = await Doctor.findOne({ userId }).select("clinic availability");
 
-        if (!doctor) {
-            return res.status(404).json({ message: 'Doctor not found' });
-        }
+//         if (!doctor) {
+//             return res.status(404).json({ message: 'Doctor not found' });
+//         }
 
-        // Check if clinic data exists
-        if (!doctor.clinic) {
-            return res.status(400).json({ message: 'Clinic data is not set up yet' });
-        }
+//         // Check if clinic data exists
+//         if (!doctor.clinic) {
+//             return res.status(400).json({ message: 'Clinic data is not set up yet' });
+//         }
 
-        // Extract clinic data
-        const { fullName, specialisation, educationBackground, image, consultationFee, city, country, startTime, endTime } =
-            doctor.clinic;
+//         // Extract clinic data
+//         const { fullName, specialisation, educationBackground, image, consultationFee, city, country, startTime, endTime } =
+//             doctor.clinic;
 
-        res.status(200).json({
-            clinic: {
-                fullName,
-                specialisation,
-                educationBackground,
-                image,
-                consultationFee,
-                city,
-                country,
-                startTime,
-                endTime,
-            },
-            availability: doctor.availability || [] // ✅ Include availability data
-        });
-    } catch (error) {
-        console.error("Error fetching clinic details:", error);
-        res.status(500).json({ message: "An error occurred while fetching clinic details." });
-    }
-};
+//         res.status(200).json({
+//             clinic: {
+//                 fullName,
+//                 specialisation,
+//                 educationBackground,
+//                 image,
+//                 consultationFee,
+//                 city,
+//                 country,
+//                 startTime,
+//                 endTime,
+//             },
+//             availability: doctor.availability || [] // ✅ Include availability data
+//         });
+//     } catch (error) {
+//         console.error("Error fetching clinic details:", error);
+//         res.status(500).json({ message: "An error occurred while fetching clinic details." });
+//     }
+// };
 
 
 
