@@ -114,10 +114,49 @@ const DeletePost = async (req: Request, res: Response) => {
     }
 }
 
+
+// get a post by postId
+const GetPostById = async (req: Request, res: Response) => {
+  try {
+      const postId = req.params.postId;
+      const post = await Post.findById(postId);
+      if (!post) {
+          return res.status(404).json({ error: "Post not found" });
+      }
+
+      // Fetch user details
+      const user = await User.findById(post.userId);
+
+      // Add user details to the post
+      const postWithUserDetails = {
+          ...post.toObject(), // Convert Mongoose document to plain object
+          user: user
+              ? {
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                }
+              : null, // If user is not found, set it as null
+      };
+
+      res.json(postWithUserDetails);
+  } catch (err: any) {
+      res.status(500).json({ error: err.message });
+      console.error("Error in getting post:", err.message);
+  }
+};
+
+
 //a function to get all posts from the logged in user
 const GetMyPosts = async (req: Request, res: Response) => {
     try {
-        const userId = req.body.userId;
+//        const userId = req.body.userId;
+        const userId = req.query.userId as string;
+
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+  
         const posts = await Post.find({ userId });
         res.json(posts);
     } catch (err: any) {
@@ -128,22 +167,43 @@ const GetMyPosts = async (req: Request, res: Response) => {
 
 // Controller to get posts favorited by a user
 const getMyFavoritedPosts = async (req: Request, res: Response) => {
-    try {
-      const userId = req.body.userId; // Assuming `req.user` contains the authenticated user's ID from middleware.
-  
-      // Find posts where the user ID is in the `favouritedBy` array
-      const favoritedPosts = await Post.find({ favouritedBy: userId });
-  
+  try {
+      const userId = req.query.userId as string;
+
+      if (!userId) {
+          return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      // Find posts where the user is in `favouritedBy`
+      const favoritedPosts = await Post.find({ favouritedBy: userId }).sort({ createdAt: -1 });
+
+      // Fetch user details for each post
+      const postsWithUserDetails = await Promise.all(
+          favoritedPosts.map(async (post) => {
+              const user = await User.findById(post.userId);
+              return {
+                  ...post.toObject(), // Convert Mongoose document to plain object
+                  user: {
+                      _id: user?._id,
+                      name: user?.name,
+                      email: user?.email,
+                  },
+              };
+          })
+      );
+
       res.status(200).json({
-        success: true,
-        count: favoritedPosts.length,
-        posts: favoritedPosts,
+          success: true,
+          count: postsWithUserDetails.length,
+          posts: postsWithUserDetails,
       });
-    } catch (error: any) {
+  } catch (error: any) {
       console.error("Error fetching favorited posts:", error.message);
       res.status(500).json({ success: false, error: error.message });
-    }
-  };
+  }
+};
+
+
   
 // add a function to favorite a post
 const addPostToFavorite = async (req: Request, res: Response) => {
@@ -264,4 +324,4 @@ const searchPostByTitle = async (req: Request, res: Response) => {
 
 
 
-export {test , CreatePost, GetAllPosts , DeletePost , GetMyPosts , getMyFavoritedPosts , addPostToFavorite , likeUnlikePost , commentOnPost , searchPostByTitle, getPostComments};
+export {test , GetPostById, CreatePost, GetAllPosts , DeletePost , GetMyPosts , getMyFavoritedPosts , addPostToFavorite , likeUnlikePost , commentOnPost , searchPostByTitle, getPostComments};

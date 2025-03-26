@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 const DoctorSchema = new Schema({
-    // Login/Account Details
+    // Login/Account Details 
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

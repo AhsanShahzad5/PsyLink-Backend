@@ -23,6 +23,7 @@
     "express": "^4.19.2",
     "express-oauth2-jwt-bearer": "^1.6.0",
     "express-validator": "^7.2.0",
+    "jazzcash-checkout": "^1.0.0",
     "jsonwebtoken": "^9.0.2",
     "moment": "^2.30.1",
     "mongodb": "^6.8.0",
