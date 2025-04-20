@@ -5,6 +5,7 @@ import bcryptjs from 'bcryptjs'
 import Doctor from '../models/DoctorModel';
 import Patient from '../models/PatientModel';
 import Note from '../models/NotesModel';
+import { v4 as uuidv4 } from 'uuid';
 
 const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to patient' });
@@ -59,9 +60,7 @@ const bookAppointment = async (req:any, res:any) => {
         slot.status = 'booked';
         slot.bookedBy = userId;
 
-        // Optional: Add to appointments list
-        doctor.appointments.push({ patientId: userId, date, time });
-        await doctor.save();
+       
 
 
         let patient = await Patient.findOne({ userId });
@@ -70,8 +69,16 @@ const bookAppointment = async (req:any, res:any) => {
            patient = new Patient({ userId, email: userEmail });
         }
 
+        //create the appointmentId
+        const appointmentId = uuidv4();
+
+         // Optional: Add to appointments list
+         doctor.appointments.push({ appointmentId ,patientId: userId, date, time });
+         await doctor.save();
+
         // Add to patient's upcoming appointments
         patient?.appointments?.upcoming.push({
+            appointmentId,
             doctorId,
             date,
             time,
@@ -135,6 +142,7 @@ const getBookedAppointments = async (req: any, res: any) => {
     
         return {
           id: appointment._id,
+          appointmentId:appointment.appointmentId,
           doctorName: doctor.personalDetails?.fullName || "Unknown Doctor",
           specialization: doctor.professionalDetails?.specialisation || "General Practitioner",
           bookedTimeSlot: appointment.time,

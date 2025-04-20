@@ -81,7 +81,7 @@ const DoctorSchema = new Schema({
 
     // Appointments
     appointments: [
-        {
+        {   appointmentId:{ type: String, required: true },
             patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
             date: { type: String, required: false },
             time: { type: String, required: false },

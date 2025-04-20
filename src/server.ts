@@ -13,16 +13,21 @@ import connectToMongo from '../db';
 import AdminRoutes from './routes/AdminRoutes';
 import User from './models/UserModel';
 import UserRoutes from './routes/UserRoutes';
+import { Server, Socket } from "socket.io";
+
 const cookieParser = require("cookie-parser")
 
 const errorMiddleware = require('./middlewares/error');
 
 const app = express()
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
-const allowedOrigins = ['http://localhost:5173'];
+
+
+
 
 // Configure CORS options
+const allowedOrigins = ['http://localhost:5173'];
 const corsOptions = {
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -65,6 +70,47 @@ app.use(errorMiddleware);
 
 const server = app.listen(PORT, () => {
     console.log(`PSYLINK BACKEND listening on port http://localhost:${PORT}`)
+})
+
+//Server for Video Calling
+
+const io = new Server(server, {
+    cors: {
+        origin: "http://localhost:5173",
+        methods: ["GET", "POST"]
+    }
+});
+
+const emailToSocketIdMap = new Map();
+const socketIdToEmailMap = new Map();
+
+io.on("connection",(socket: Socket)=>{
+    console.log(`Socket Connected `,socket.id);
+    socket.on("room:join",(data)=>{
+        const {user , roomId } = data; //user has user._id, user.email, user.role
+        const email = user.email;
+        emailToSocketIdMap.set(user.email,socket.id);
+        socketIdToEmailMap.set(socket.id, user.email);
+        io.to(roomId).emit("user:joined",{ email , id:socket.id})
+        socket.join(roomId);
+        io.to(socket.id).emit("room:join", data) //room join krlia
+    });
+
+    socket.on("user:call", ({to,offer})=>{
+        io.to(to).emit("incomming:call",{from:socket.id,offer})
+    })
+
+    socket.on("call:accepted",({to,ans})=>{
+        io.to(to).emit("call:accepted",{from:socket.id, ans })
+    })
+
+    socket.on("peer:nego:needed",({to, offer})=>{
+        io.to(to).emit("peer:nego:needed",{from:socket.id, offer })
+    })
+    
+    socket.on('peer:nego:done', ({to , ans})=>{
+        io.to(to).emit("peer:nego:final",{from:socket.id, ans })
+    })
 })
 
 

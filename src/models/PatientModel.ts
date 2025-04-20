@@ -29,7 +29,7 @@ const PatientSchema = new Schema({
   // Appointments
   appointments: {
     upcoming: [
-      {
+      { appointmentId:{ type: String, required: true },
         doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', required: true },
         date: { type: String, required: true },
         time: { type: String, required: true },
@@ -37,7 +37,7 @@ const PatientSchema = new Schema({
       },
     ],
     previous: [
-      {
+      { appointmentId:{ type: String, required: true },
         doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', required: true },
         date: { type: String, required: true },
         time: { type: String, required: true },
