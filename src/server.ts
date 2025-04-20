@@ -86,14 +86,37 @@ const socketIdToEmailMap = new Map();
 
 io.on("connection",(socket: Socket)=>{
     console.log(`Socket Connected `,socket.id);
-    socket.on("room:join",(data)=>{
-        const {user , roomId } = data; //user has user._id, user.email, user.role
+    socket.on("room:join", (data) => {
+        const {user, roomId} = data;
         const email = user.email;
-        emailToSocketIdMap.set(user.email,socket.id);
+        
+        // Store mappings
+        emailToSocketIdMap.set(user.email, socket.id);
         socketIdToEmailMap.set(socket.id, user.email);
-        io.to(roomId).emit("user:joined",{ email , id:socket.id})
+        
+        // Join the room
         socket.join(roomId);
-        io.to(socket.id).emit("room:join", data) //room join krlia
+        
+        // Get all socket IDs in the room
+        const room = io.sockets.adapter.rooms.get(roomId);
+        const socketsInRoom = room ? Array.from(room) : [];
+        
+        // If we already have another user, tell both users about each other
+        if (socketsInRoom.length > 1) {
+            // Force a room broadcast of all users
+            setTimeout(() => {
+                const allUsers = socketsInRoom.map(sid => ({
+                    id: sid,
+                    email: socketIdToEmailMap.get(sid) || "unknown"
+                }));
+                
+                // Send to everyone
+                io.in(roomId).emit("room:users", { users: allUsers });
+            }, 1000); // Small delay to ensure socket has fully joined
+        }
+        
+        // Confirm room join
+        io.to(socket.id).emit("room:join", data);
     });
 
     socket.on("user:call", ({to,offer})=>{
