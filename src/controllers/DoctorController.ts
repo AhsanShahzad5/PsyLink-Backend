@@ -1,5 +1,3 @@
-
-
 import express, { Request, Response } from 'express';
 import Doctor from '../models/DoctorModel';
 import AdminNotification from '../models/AdminNotification';
@@ -226,3 +224,4 @@ const markSlotsAsBusy = async (req: any, res: any) => {
 };
 
 export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus,setupClinic, setAvailableSlots, markSlotsAsBusy, getClinicDetails }
+
