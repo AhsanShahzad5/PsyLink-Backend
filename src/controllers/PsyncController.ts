@@ -10,11 +10,10 @@ const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to doctor' });
 }
 
-const CreatePost = async (req:Request, res:Response) => {
-
+const CreatePost = async (req: Request, res: Response) => {
     try {
-      const { userId ,title, description, img } = req.body;
-      
+      const { userId, title, description, img, series } = req.body;
+  
       if (!title || !description) {
         return res.status(400).json({ error: "Title and description are required" });
       }
@@ -25,10 +24,10 @@ const CreatePost = async (req:Request, res:Response) => {
       }
   
       // Validate title and description length
-      if (title.length > 20) {
+      if (title.length > 100) {
         return res.status(400).json({ error: "Title cannot exceed 100 characters" });
       }
-      if (description.length > 250) {
+      if (description.length > 500) {
         return res.status(400).json({ error: "Description cannot exceed 500 characters" });
       }
   
@@ -39,26 +38,32 @@ const CreatePost = async (req:Request, res:Response) => {
         imageUrl = uploadedResponse.secure_url;
       }
   
+      // Prepare the series array (convert to array if only one id is sent)
+      const seriesArray = series ? (Array.isArray(series) ? series : [series]) : [];
+  
       // Create and save the post
       const newPost = new Post({
         title,
         description,
         userId,
         img: imageUrl,
+        series: seriesArray, // Save selected series ID(s)
       });
-      await newPost.save();
   
+      await newPost.save();
       res.status(201).json(newPost);
-    } catch (err:any) {
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
       console.error("Error in creating post:", err.message);
     }
   };
+  
+
 
 //get all posts from the database with the user details
 const GetAllPosts = async (req: Request, res: Response) => {
   try {
-      const posts = await Post.find().sort({ createdAt: -1 });;
+      const posts = await Post.find().populate('series', 'title').sort({ createdAt: -1 });;
       // res.json(posts)
 
       const postsWithUserDetails = await Promise.all(
