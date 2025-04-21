@@ -70,6 +70,7 @@ const GetAllPosts = async (req: Request, res: Response) => {
                       _id: user?._id,
                       name: user?.name,
                       email: user?.email,
+                      role : user?.role,
                   },
               };
           })
@@ -101,10 +102,10 @@ const DeletePost = async (req: Request, res: Response) => {
             return res.status(403).json({ error: "You are not authorized to delete this post" });
         }
 
-        // if (post.img) {
-		// 	const imgId = post.img.split("/").pop().split(".")[0];
-		// 	await cloudinary.uploader.destroy(imgId);
-		// }
+        if (post.img) {
+            const imgId = post.img?.split("/")?.pop()?.split(".")?.[0] ?? "";
+			await cloudinary.uploader.destroy(imgId);
+		}
 		await Post.findByIdAndDelete(postId);
             res.json({ message: "Post deleted successfully" });
     
@@ -187,6 +188,7 @@ const getMyFavoritedPosts = async (req: Request, res: Response) => {
                       _id: user?._id,
                       name: user?.name,
                       email: user?.email,
+                      role : user?.role,
                   },
               };
           })
