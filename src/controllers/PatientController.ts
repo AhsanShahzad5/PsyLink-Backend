@@ -51,9 +51,6 @@ const bookAppointment = async (req:any, res:any) => {
         slot.status = 'booked';
         slot.bookedBy = userId;
 
-       
-
-
         let patient = await Patient.findOne({ userId });
         if (!patient) {
             const userEmail = req.user.email; 
