@@ -1,5 +1,5 @@
 import express from "express";
-import { test , CreatePost, GetAllPosts, DeletePost, GetMyPosts, getMyFavoritedPosts, addPostToFavorite, likeUnlikePost, commentOnPost, searchPostByTitle, getPostComments, GetPostById} from "../controllers/PsyncController";
+import { test , CreatePost, GetAllPosts, DeletePost, GetMyPosts, getMyFavoritedPosts, addPostToFavorite, likeUnlikePost, commentOnPost, searchPostByTitle, getPostComments, GetPostById, UpdatePost} from "../controllers/PsyncController";
 import { addPostToExistingSeries, createANewSeries, deleteSeries, getAllSeries, getSeriesById, getSeriesByTitle, getUserSeriesWithPosts } from "../controllers/PsyncSeriesController";
 const router = express.Router();
 
@@ -14,11 +14,13 @@ router.post('/addToFavourites/:postId' , addPostToFavorite);
 router.post('/likeUnlikePost/:postId' , likeUnlikePost);
 router.post('/commentOnPost/:postId' , commentOnPost);
 router.get('/post/:postId' , GetPostById);
+router.put('/updatePost/:postId', UpdatePost);
 
 router.get('/getAllPosts' , GetAllPosts);
 router.get('/getMyPosts' , GetMyPosts);
 router.get('/getMyFavouritePosts' , getMyFavoritedPosts);
 router.get('/search' , searchPostByTitle)
+
 
 
 // series controllers

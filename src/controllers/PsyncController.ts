@@ -178,41 +178,43 @@ const GetMyPosts = async (req: Request, res: Response) => {
 
 // Controller to get posts favorited by a user
 const getMyFavoritedPosts = async (req: Request, res: Response) => {
-  try {
-      const userId = req.query.userId as string;
+    try {
+            const userId = req.query.userId as string;
 
-      if (!userId) {
-          return res.status(401).json({ success: false, message: "Unauthorized" });
-      }
+            if (!userId) {
+                    return res.status(401).json({ success: false, message: "Unauthorized" });
+            }
 
-      // Find posts where the user is in `favouritedBy`
-      const favoritedPosts = await Post.find({ favouritedBy: userId }).sort({ createdAt: -1 });
+            // Find posts where the user is in `favouritedBy`
+            const favoritedPosts = await Post.find({ favouritedBy: userId })
+                    .populate('series', 'title') // Populate series with its title
+                    .sort({ createdAt: -1 });
 
-      // Fetch user details for each post
-      const postsWithUserDetails = await Promise.all(
-          favoritedPosts.map(async (post) => {
-              const user = await User.findById(post.userId);
-              return {
-                  ...post.toObject(), // Convert Mongoose document to plain object
-                  user: {
-                      _id: user?._id,
-                      name: user?.name,
-                      email: user?.email,
-                      role : user?.role,
-                  },
-              };
-          })
-      );
+            // Fetch user details for each post
+            const postsWithUserDetails = await Promise.all(
+                    favoritedPosts.map(async (post) => {
+                            const user = await User.findById(post.userId);
+                            return {
+                                    ...post.toObject(), // Convert Mongoose document to plain object
+                                    user: {
+                                            _id: user?._id,
+                                            name: user?.name,
+                                            email: user?.email,
+                                            role: user?.role,
+                                    },
+                            };
+                    })
+            );
 
-      res.status(200).json({
-          success: true,
-          count: postsWithUserDetails.length,
-          posts: postsWithUserDetails,
-      });
-  } catch (error: any) {
-      console.error("Error fetching favorited posts:", error.message);
-      res.status(500).json({ success: false, error: error.message });
-  }
+            res.status(200).json({
+                    success: true,
+                    count: postsWithUserDetails.length,
+                    posts: postsWithUserDetails,
+            });
+    } catch (error: any) {
+            console.error("Error fetching favorited posts:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+    }
 };
 
 
@@ -330,10 +332,70 @@ const searchPostByTitle = async (req: Request, res: Response) => {
 }
 
 
-// Controller to get user details by userId
+// Controller to update post
+// In PsyncController.ts
 
-
-
-
-
-export {test , GetPostById, CreatePost, GetAllPosts , DeletePost , GetMyPosts , getMyFavoritedPosts , addPostToFavorite , likeUnlikePost , commentOnPost , searchPostByTitle, getPostComments};
+const UpdatePost = async (req: Request, res: Response) => {
+    try {
+      const postId = req.params.postId;
+      const { userId, title, description, img } = req.body;
+  
+      // Validate the post ID
+      if (!mongoose.Types.ObjectId.isValid(postId)) {
+        return res.status(400).json({ error: "Invalid Post ID" });
+      }
+  
+      // Find the post
+      const post = await Post.findById(postId);
+      if (!post) {
+        return res.status(404).json({ error: "Post not found" });
+      }
+  
+      // Check if the user is authorized to update this post
+      if (post.userId.toString() !== userId) {
+        return res.status(403).json({ error: "You are not authorized to update this post" });
+      }
+  
+      // Validate title and description length
+      if (title && title.length > 100) {
+        return res.status(400).json({ error: "Title cannot exceed 100 characters" });
+      }
+      
+      // Handle optional image update
+      let imageUrl = post.img; // Default to existing image
+      if (img && img !== post.img) {
+        // If image changed, upload new image
+        const uploadedResponse = await cloudinary.uploader.upload(img);
+        imageUrl = uploadedResponse.secure_url;
+        
+        // Delete old image if exists
+        if (post.img) {
+          const imgId = post.img?.split("/")?.pop()?.split(".")?.[0] ?? "";
+          await cloudinary.uploader.destroy(imgId);
+        }
+      }
+  
+      // Update the post
+      const updatedPost = await Post.findByIdAndUpdate(
+        postId,
+        {
+          title: title || post.title,
+          description: description || post.description,
+          img: imageUrl,
+        },
+        { new: true } // Return the updated document
+      );
+  
+      res.status(200).json(updatedPost);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+      console.error("Error in updating post:", err.message);
+    }
+  };
+  
+  // Don't forget to export the function
+  export { 
+    test, GetPostById, CreatePost, GetAllPosts, DeletePost, GetMyPosts, 
+    getMyFavoritedPosts, addPostToFavorite, likeUnlikePost, commentOnPost, 
+    searchPostByTitle, getPostComments, UpdatePost 
+  };
