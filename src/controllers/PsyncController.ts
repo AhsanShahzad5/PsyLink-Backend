@@ -126,7 +126,11 @@ const DeletePost = async (req: Request, res: Response) => {
 const GetPostById = async (req: Request, res: Response) => {
   try {
       const postId = req.params.postId;
-      const post = await Post.findById(postId);
+      const post = await Post.findById(postId)
+      .populate({
+        path: 'series',
+        select: '_id title' // Select only the _id and title fields from series
+      });
       if (!post) {
           return res.status(404).json({ error: "Post not found" });
       }

@@ -283,7 +283,7 @@ export const getUserSeriesWithPosts = async (req: Request, res: Response) => {
     const userSeries = await Series.find({ createdBy: userId })
       .populate({
         path: "posts",
-        select: "title description img createdAt updatedAt" // Select the fields you want from posts
+        select: "title description img createdAt updatedAt likes comments" // Select the fields you want from posts
       })
       .populate("createdBy", "name email"); // Add user details if needed
 
@@ -297,7 +297,7 @@ export const getUserSeriesWithPosts = async (req: Request, res: Response) => {
     // });
 
       // Simply return the array directly
-      res.status(200).json(userSeries);
+    res.status(200).json(userSeries);
   } catch (error) {
     console.error("Error fetching user series:", error);
     res.status(500).json({ error: "Internal Server Error" });
