@@ -115,7 +115,12 @@ export const getSeriesByTitle = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Title is required" });
     }
 
-    const series = await Series.findOne({ title }).populate("posts");
+    // Using regex for case-insensitive and partial matching
+    const series = await Series.findOne({ 
+      title: { $regex: title, $options: 'i' } 
+    })
+    .populate("posts")
+    .populate("createdBy", "name email"); // Populate user details (name and email)
 
     if (!series) {
       return res.status(404).json({ error: "Series not found" });
@@ -127,7 +132,6 @@ export const getSeriesByTitle = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
 /**
  * Add a post to an existing series
  */
