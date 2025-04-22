@@ -262,6 +262,62 @@ export const getSeriesById = async (req: Request, res: Response) => {
   };
   
 
+//get all series and its posts of a particular user (not api tested yet)
+
+export const getUserSeriesWithPosts = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    // Validate user ID
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    // Check if the user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Find all series created by this user and populate their posts
+    const userSeries = await Series.find({ createdBy: userId })
+      .populate({
+        path: "posts",
+        select: "title description img createdAt updatedAt" // Select the fields you want from posts
+      })
+      .populate("createdBy", "name email"); // Add user details if needed
+
+    if (userSeries.length === 0) {
+      return res.status(200).json({ message: "No series found for this user", series: [] });
+    }
+
+    // res.status(200).json({
+    //   count: userSeries.length,
+    //   series: userSeries
+    // });
+
+      // Simply return the array directly
+      res.status(200).json(userSeries);
+  } catch (error) {
+    console.error("Error fetching user series:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // fix this later
 //   export const deleteSeriesAndPosts = async (req: Request, res: Response) => {
 //   try {
@@ -306,3 +362,5 @@ export const getSeriesById = async (req: Request, res: Response) => {
 //     res.status(500).json({ error: "Internal Server Error" });
 //   }
 // };
+
+

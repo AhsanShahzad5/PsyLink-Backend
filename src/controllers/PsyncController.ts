@@ -63,7 +63,8 @@ const CreatePost = async (req: Request, res: Response) => {
 //get all posts from the database with the user details
 const GetAllPosts = async (req: Request, res: Response) => {
   try {
-      const posts = await Post.find().populate('series', 'title').sort({ createdAt: -1 });;
+      const posts = await Post.find().
+      populate('series', 'title').sort({ createdAt: -1 });;
       // res.json(posts)
 
       const postsWithUserDetails = await Promise.all(
@@ -163,7 +164,7 @@ const GetMyPosts = async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
   
-        const posts = await Post.find({ userId });
+        const posts = await Post.find({ userId }).populate('series', 'title').sort({ createdAt: -1 });
         res.json(posts);
     } catch (err: any) {
         res.status(500).json({ error: err.message });

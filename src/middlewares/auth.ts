@@ -7,8 +7,8 @@ import User from "../models/UserModel";
 
 exports.isAuthenticated = catchAsyncErrors(async (req: any, res: any, next: any) => {
     
-    console.log('Cookies:', req.cookies.token);
-    console.log('Authorization header:', req.headers.authorization);
+    //console.log('Cookies:', req.cookies.token);
+    //console.log('Authorization header:', req.headers.authorization);
 
     // const { token: token } = req.cookies; // Rename the destructured jwt to token
     const token = req.cookies.token ; // Safely destructure cookies

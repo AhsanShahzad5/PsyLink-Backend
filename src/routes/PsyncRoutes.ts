@@ -1,6 +1,6 @@
 import express from "express";
 import { test , CreatePost, GetAllPosts, DeletePost, GetMyPosts, getMyFavoritedPosts, addPostToFavorite, likeUnlikePost, commentOnPost, searchPostByTitle, getPostComments, GetPostById} from "../controllers/PsyncController";
-import { addPostToExistingSeries, createANewSeries, deleteSeries, getAllSeries, getSeriesById, getSeriesByTitle } from "../controllers/PsyncSeriesController";
+import { addPostToExistingSeries, createANewSeries, deleteSeries, getAllSeries, getSeriesById, getSeriesByTitle, getUserSeriesWithPosts } from "../controllers/PsyncSeriesController";
 const router = express.Router();
 
 router.get('/test' , test);
@@ -32,6 +32,7 @@ router.get("/series/:id", getSeriesById); // Get a series by ID
 router.get("/series/title/:title", getSeriesByTitle); // Get a series by title
 router.delete("/series/:id", deleteSeries); // ✅ Deletes only the series, keeps posts
 
+router.get("/series/user/:userId", getUserSeriesWithPosts);   //gets all series of a user with its posts
 
 //export
 export default router;
