@@ -309,6 +309,56 @@ export const getUserSeriesWithPosts = async (req: Request, res: Response) => {
 };
 
 
+export const deleteSeriesAndPosts = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body; // Assuming userId is sent in the request body
+
+    // ✅ Validate ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid series ID" });
+    }
+
+    // ✅ Find the series and populate full post data
+    const series = await Series.findById(id).populate({
+      path: "posts",
+      select: "img _id title description" // ✅ Ensure we fetch 'img' field along with '_id' and other necessary fields
+    });
+
+    if (!series) {
+      return res.status(404).json({ error: "Series not found" });
+    }
+
+    // ✅ Check if the user is the creator
+    if (series.createdBy.toString() !== userId) {
+      return res.status(403).json({ error: "You are not authorized to delete this series" });
+    }
+
+    // ✅ Delete Posts and their Images (if any)
+    for (const post of series.posts) {
+      if (post && typeof post === 'object' && 'img' in post) {
+        try {
+          const imgId = typeof post.img === "string" ? post.img.split("/").pop()?.split(".")[0] : null;
+          if (imgId) {
+            await cloudinary.uploader.destroy(imgId); // ✅ Delete image
+          }
+        } catch (imgError) {
+          console.error("Error deleting image:", imgError);
+          // Continue with deletion even if image deletion fails
+        }
+      }
+      await Post.findByIdAndDelete(post._id); // ✅ Delete post
+    }
+
+    // ✅ Finally, delete the series
+    await Series.findByIdAndDelete(id);
+
+    res.status(200).json({ message: "Series and its posts deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting series and posts:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
 
 
 
@@ -318,53 +368,5 @@ export const getUserSeriesWithPosts = async (req: Request, res: Response) => {
 
 
 
-
-
-
-
-// fix this later
-//   export const deleteSeriesAndPosts = async (req: Request, res: Response) => {
-//   try {
-//     const { id } = req.params;
-//     const { userId } = req.body; // Assuming userId is sent in the request body
-
-//     // ✅ Validate ID
-//     if (!mongoose.Types.ObjectId.isValid(id)) {
-//       return res.status(400).json({ error: "Invalid series ID" });
-//     }
-
-//     // ✅ Find the series and populate full post data
-//     const series = await Series.findById(id).populate({
-//       path: "posts",
-//       select: "img _id" // ✅ Ensure we fetch 'img' field along with '_id'
-//     });
-
-//     if (!series) {
-//       return res.status(404).json({ error: "Series not found" });
-//     }
-
-//     // ✅ Check if the user is the creator
-//     if (series.createdBy.toString() !== userId) {
-//       return res.status(403).json({ error: "You are not authorized to delete this series" });
-//     }
-
-//     // ✅ Delete Posts and their Images (if any)
-//     for (const post of series.posts) {
-//       if (post?.img) {
-//         const imgId = post.img?.split("/")?.pop()?.split(".")?.[0] ?? "";
-//         await cloudinary.uploader.destroy(imgId); // ✅ Delete image
-//       }
-//       await Post.findByIdAndDelete(post._id); // ✅ Delete post
-//     }
-
-//     // ✅ Finally, delete the series
-//     await Series.findByIdAndDelete(id);
-
-//     res.status(200).json({ message: "Series and its posts deleted successfully" });
-//   } catch (error) {
-//     console.error("Error deleting series and posts:", error);
-//     res.status(500).json({ error: "Internal Server Error" });
-//   }
-// };
 
 
