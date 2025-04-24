@@ -5,6 +5,7 @@ import bcryptjs from 'bcryptjs'
 import Doctor from '../models/DoctorModel';
 import Patient from '../models/PatientModel';
 import Note from '../models/NotesModel';
+import { v4 as uuidv4 } from 'uuid';
 
 const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to patient' });
@@ -49,14 +50,23 @@ const bookAppointment = async (req:any, res:any) => {
         }
         slot.status = 'booked';
         slot.bookedBy = userId;
-        doctor.appointments.push({ patientId: userId, date, time });
-        await doctor.save();
+
         let patient = await Patient.findOne({ userId });
         if (!patient) {
             const userEmail = req.user.email; 
            patient = new Patient({ userId, email: userEmail });
         }
+
+        //create the appointmentId
+        const appointmentId = uuidv4();
+
+         // Optional: Add to appointments list
+         doctor.appointments.push({ appointmentId ,patientId: userId, date, time });
+         await doctor.save();
+
+        // Add to patient's upcoming appointments
         patient?.appointments?.upcoming.push({
+            appointmentId,
             doctorId,
             date,
             time,
@@ -108,6 +118,7 @@ const getBookedAppointments = async (req: any, res: any) => {
         const joinIn = status === "upcoming" ? getTimeRemaining(appointmentDate) : null;
         return {
           id: appointment._id,
+          appointmentId:appointment.appointmentId,
           doctorName: doctor.personalDetails?.fullName || "Unknown Doctor",
           specialization: doctor.professionalDetails?.specialisation || "General Practitioner",
           bookedTimeSlot: appointment.time,
@@ -232,6 +243,40 @@ export const getAllNotes = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching notes:', error);
     res.status(500).json({ message: 'An error occurred while retrieving notes.' });
+  }
+};
+
+export const applyProgram =async (req: any, res: any) => {
+  const userId = req.user._id;
+  console.log("This is userId in applyProgram",userId)
+  const {
+    programId,
+    planName,
+    startDate,
+    endDate,
+    dailyProgress,
+  } = req.body;
+
+  try {
+    const patient = await Patient.findOne({ userId });
+    if (!patient) return res.status(404).send("Patient not found");
+
+     // ensure programs object exists
+    
+
+    patient.programs!.applied.push({
+      program: programId,
+      planName,
+      startDate,
+      endDate,
+      dailyProgress,
+    });
+
+    await patient.save();
+    res.status(200).send({ message: "Program applied" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server error");
   }
 };
 
