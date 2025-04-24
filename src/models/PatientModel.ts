@@ -59,9 +59,48 @@ const PatientSchema = new Schema({
     },
   ],
   programs: {
-    applied: [{ type: Schema.Types.ObjectId, ref: 'Program' }],
-    previous: [{ type: Schema.Types.ObjectId, ref: 'Program' }],
+    applied: [
+      {
+        program: { type: Schema.Types.ObjectId, ref: 'Program', required: true },
+        planName: {type:String , required:true },
+        startDate: { type: Date, required: true },
+        endDate: { type: Date, required: true },
+        dailyProgress: [
+          {
+            date: { type: Date, required: true },
+            tasks: [
+              {
+                taskName: { type: String, required: true },
+                repetitions: { type: Number, required: true },
+                completed: { type: Boolean, default: false },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    previous: [
+      {
+        program: { type: Schema.Types.ObjectId, ref: 'Program', required: true },
+        planName: {type:String , required:true },
+        startDate: { type: Date, required: true },
+        endDate: { type: Date, required: true },
+        dailyProgress: [
+          {
+            date: { type: Date, required: true },
+            tasks: [
+              {
+                taskName: { type: String, required: true },
+                repetitions: { type: Number, required: true },
+                completed: { type: Boolean, default: false },
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
+  
   notes: [
     {
     type: mongoose.Schema.Types.ObjectId,

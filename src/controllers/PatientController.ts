@@ -246,4 +246,38 @@ export const getAllNotes = async (req: Request, res: Response) => {
   }
 };
 
+export const applyProgram =async (req: any, res: any) => {
+  const userId = req.user._id;
+  console.log("This is userId in applyProgram",userId)
+  const {
+    programId,
+    planName,
+    startDate,
+    endDate,
+    dailyProgress,
+  } = req.body;
+
+  try {
+    const patient = await Patient.findOne({ userId });
+    if (!patient) return res.status(404).send("Patient not found");
+
+     // ensure programs object exists
+    
+
+    patient.programs!.applied.push({
+      program: programId,
+      planName,
+      startDate,
+      endDate,
+      dailyProgress,
+    });
+
+    await patient.save();
+    res.status(200).send({ message: "Program applied" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server error");
+  }
+};
+
 export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments}

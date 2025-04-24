@@ -4,7 +4,7 @@ import "dotenv/config"
 import PatientRoutes from './routes/PatientRoute'
 import DoctorRoutes from './routes/DoctorRoutes';
 import PsyncRoutes from './routes/PsyncRoutes';
-
+import ProgramRoutes from './routes/ProgramRoutes'
 import { v2 as cloudinary } from 'cloudinary'
 
 //will un-comment db stuff after finalzing a url for mongo
@@ -62,6 +62,7 @@ app.use('/api/patient', PatientRoutes)
 app.use('/api/doctor', DoctorRoutes)
 app.use('/api/admin', AdminRoutes)
 app.use('/api/psync', PsyncRoutes)
+app.use('/api/program',ProgramRoutes)
 
 //error middleware
 app.use(errorMiddleware);
