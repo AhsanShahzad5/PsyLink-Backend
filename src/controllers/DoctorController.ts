@@ -36,6 +36,39 @@ const submitPersonalDetails = async (req: any, res: any) => {
     }
 };
 
+const getDoctorProfessionalDetails = async (req: any, res: any) => {
+    try {
+      const userId = req.user._id;
+  
+      if (req.user.role.toLowerCase() !== 'doctor') {
+        return res.status(403).json({ message: "Only doctors can access professional details" });
+      }
+  
+      const doctor = await Doctor.findOne({ userId });
+  
+      if (!doctor) {
+        return res.status(404).json({ message: "Doctor not found" });
+      }
+  
+      const professionalDetails = doctor.professionalDetails;
+  
+      if (!professionalDetails) {
+        return res.status(200).json({ 
+          message: "No professional details found yet", 
+          professionalDetails: null 
+        });
+      }
+  
+      res.status(200).json({
+        message: "Doctor professional details fetched successfully",
+        professionalDetails,
+      });
+    } catch (error) {
+      console.error("Error fetching doctor professional details:", error);
+      res.status(500).json({ message: "An error occurred while fetching doctor professional details" });
+    }
+  };
+
 const submitProfessionalDetails = async (req: any, res: any) => {
     const { specialisation, pmdcNumber, educationalBackground, licenseImage, cnicNumber, availableHours, consultationFee, bankDetails } = req.body;
     const userId = req.user._id;
@@ -484,6 +517,6 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
   }
 
 export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus,setupClinic, setAvailableSlots, markSlotsAsBusy, getClinicDetails 
-    , updateDoctorPersonalDetails , getDoctorDetails
+    , updateDoctorPersonalDetails , getDoctorDetails , getDoctorProfessionalDetails
 }
 

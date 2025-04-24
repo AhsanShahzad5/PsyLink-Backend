@@ -1,12 +1,15 @@
 import express from "express";
-import { test } from "../controllers/DoctorController";
-import { addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getOngoingPrograms, markTaskComplete } from "../controllers/PatientController";
+import { submitPersonalDetails, test } from "../controllers/DoctorController";
+import { addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete } from "../controllers/PatientController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
 
 router.route('/test').get(isAuthenticated,authorizeRoles("admin"), test);
 
+router.get("/details/personal", isAuthenticated, getPatientDetails);
+router.post('/details/personal', isAuthenticated, submitPatientPersonalDetails );
+router.put('/details/personal/update', isAuthenticated, updatePatientPersonalDetails);
 
 router.get('/doctors', getVerifiedDoctors);
 router.post('/book/appointment', isAuthenticated, bookAppointment);

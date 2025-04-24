@@ -1,6 +1,6 @@
 import express from "express";
 import { test , CreatePost, GetAllPosts, DeletePost, GetMyPosts, getMyFavoritedPosts, addPostToFavorite, likeUnlikePost, commentOnPost, searchPostByTitle, getPostComments, GetPostById, UpdatePost} from "../controllers/PsyncController";
-import { addPostToExistingSeries, createANewSeries, deleteSeries, deleteSeriesAndPosts, getAllSeries, getSeriesById, getSeriesByTitle, getUserSeriesWithPosts } from "../controllers/PsyncSeriesController";
+import { addPostToExistingSeries, createANewSeries, deleteSeries, deleteSeriesAndPosts, getAllSeries, getSeriesById, getSeriesByTitle, getUserSeriesWithPosts ,  } from "../controllers/PsyncSeriesController";
 const router = express.Router();
 
 router.get('/test' , test);

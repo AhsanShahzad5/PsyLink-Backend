@@ -1,18 +1,47 @@
 import express from "express";
 import { test } from "../controllers/DoctorController";
-import { getPendingDoctors, loginAdmin, verifyDoctor } from "../controllers/AdminController";
-const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
+import {
+  loginAdmin,
+  getPendingDoctors,
+  getVerifiedDoctors,
+  verifyDoctor,
+  rejectDoctor,
+  getDoctorDetails,
+  getAllPatients,
+  getPatientDetails,
+  getAllAppointments,
+  getAppointmentDetails,
+  deletePatient,
+  deleteDoctor,
+  getAllDoctors
+} from "../controllers/AdminController";
 
 const router = express.Router();
 
-router.get('/test' , test);
-router.post('/login' , loginAdmin);
+// Test route
+router.get('/test', test);
 
+// Auth routes
+router.post('/login', loginAdmin);
+
+// Doctor management routes
 router.get('/doctors/pending', getPendingDoctors);
 router.post('/doctors/verify/:id', verifyDoctor);
-// router.patch('/doctors/verify/:id', isAuthenticated, authorizeRoles('admin'), verifyDoctor);
 
 
+router.get('/doctors', getAllDoctors);
+router.get('/doctors/verified', getVerifiedDoctors);
+router.get('/doctors/:id', getDoctorDetails);
+router.post('/doctors/reject/:id', rejectDoctor);
+router.delete('/doctors/:id', deleteDoctor);
 
-//export
+// Patient management routes
+router.get('/patients', getAllPatients);
+router.get('/patients/:id', getPatientDetails);
+router.delete('/patients/:id', deletePatient);
+
+// Appointment management routes
+router.get('/appointments', getAllAppointments);
+router.get('/appointments/:id', getAppointmentDetails);
+
 export default router;

@@ -11,6 +11,9 @@ const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to patient' });
 }
 
+
+
+
 const getVerifiedDoctors = async (req: any, res: any) => {
   try {
       const verifiedDoctors = await Doctor.find({ status: 'verified' })
@@ -487,4 +490,95 @@ function getDaysBetweenDates(startDate: string | Date, endDate: string | Date): 
   return diffDays ;
 }
 
-export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments}
+
+const submitPatientPersonalDetails = async (req: any, res: any) => {
+  try {
+      const { fullName, age, gender, disability, country, city, phoneNo, image } = req.body;
+      const userId = req.user._id;
+      
+      if (req.user.role.toLowerCase() !== 'patient') {
+          return res.status(403).json({ message: 'Only patients can submit personal details' });
+      }
+      
+      let patient = await Patient.findOne({ userId });
+      if (!patient) {
+          const userEmail = req.user.email;
+          patient = new Patient({ userId, email: userEmail });
+      }
+      
+      patient.personalInformation = { fullName, age, gender, disability, country, city, phoneNo, image };
+      await patient.save();
+      
+      res.status(200).json({ message: 'Personal details submitted successfully' });
+  } catch (error) {
+      console.error('Error in submitPersonalDetails:', error);
+      res.status(500).json({ message: 'An error occurred while submitting personal details' });
+  }
+};
+
+const updatePatientPersonalDetails = async (req: any, res: any) => {
+  try {
+      const { fullName, age, gender, disability, country, city, phoneNo, image } = req.body;
+      const userId = req.user._id;
+      
+      if (req.user.role.toLowerCase() !== 'patient') {
+          return res.status(403).json({ message: 'Only patients can update personal details' });
+      }
+      
+      const patient = await Patient.findOne({ userId });
+      
+      if (!patient) {
+          return res.status(404).json({ message: 'Patient not found. Please complete registration first.' });
+      }
+      
+      patient.personalInformation = {
+          ...patient.personalInformation, // Preserve existing fields not being updated
+          fullName,
+          age,
+          gender,
+          disability,
+          country,
+          city,
+          phoneNo,
+          image,
+      };
+      
+      await patient.save();
+      
+      res.status(200).json({ message: 'Personal details updated successfully' });
+  } catch (error) {
+      console.error('Error in updatePatientPersonalDetails:', error);
+      res.status(500).json({ message: 'An error occurred while updating personal details' });
+  }
+};
+
+const getPatientDetails = async (req: any, res: any) => {
+  try {
+      const userId = req.user._id;
+      
+      const patient = await Patient.findOne({ userId });
+      
+      if (!patient) {
+          return res.status(404).json({ message: "Patient not found" });
+      }
+      
+      const personalInformation = patient.personalInformation;
+      
+      if (!personalInformation) {
+          return res.status(200).json({ message: "No personal details found yet", personalInformation: null });
+      }
+      
+      res.status(200).json({
+          message: "Patient personal details fetched successfully",
+          personalInformation,
+      });
+  } catch (error) {
+      console.error("Error fetching patient details:", error);
+      res.status(500).json({ message: "An error occurred while fetching patient details" });
+  }
+};
+
+
+
+
+export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments, submitPatientPersonalDetails , getPatientDetails , updatePatientPersonalDetails}

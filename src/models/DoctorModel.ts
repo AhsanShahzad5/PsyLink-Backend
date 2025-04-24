@@ -85,6 +85,7 @@ const DoctorSchema = new Schema({
             patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
             date: { type: String, required: false },
             time: { type: String, required: false },
+            PaymentStatus: { type: String, enum: ['pending', 'done'], default: 'pending'  , required: false }, // Payment status
         },
     ],
 

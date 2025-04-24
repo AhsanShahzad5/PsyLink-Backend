@@ -91,35 +91,48 @@ const GetAllPosts = async (req: Request, res: Response) => {
 
 //a delete post controller function 
 const DeletePost = async (req: Request, res: Response) => {
-    try {
-        const postId = req.params.postId;
-        // res.json(postId);
+  try {
+    const postId = req.params.postId;
+    // res.json(postId);
     
-        const userId = req.body.userId; // Assuming userId is sent in the request body
-
-        const post = await Post.findById(postId);
-        if (!mongoose.Types.ObjectId.isValid(postId)) {
-            return res.status(400).json({ error: "Invalid Post ID" });
-          }
-        if (!post) {
-            return res.status(404).json({ error: "Post not found" });
-        }
-        if (post.userId.toString() !== userId) {
-            return res.status(403).json({ error: "You are not authorized to delete this post" });
-        }
-
-        if (post.img) {
-            const imgId = post.img?.split("/")?.pop()?.split(".")?.[0] ?? "";
-			await cloudinary.uploader.destroy(imgId);
-		}
-		await Post.findByIdAndDelete(postId);
-            res.json({ message: "Post deleted successfully" });
+    const userId = req.body.userId; // Assuming userId is sent in the request body
+    const isAdmin = req.body.isAdmin; // Get the admin flag from request body
     
-    } catch (err: any) {
-        res.status(500).json({ error: err.message });
-        console.error("Error in deleting post:", err.message);
+    const post = await Post.findById(postId);
+    
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ error: "Invalid Post ID" });
     }
-}
+    
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    
+    // If user is not an admin, perform the regular authorization check
+    if (!isAdmin && post.userId.toString() !== userId) {
+      return res.status(403).json({ error: "You are not authorized to delete this post" });
+    }
+    
+    // Admin users bypass the above check and can delete any post
+    
+    if (post.img) {
+      const imgId = post.img?.split("/")?.pop()?.split(".")?.[0] ?? ""; 
+      await cloudinary.uploader.destroy(imgId); 
+    } 
+    
+    await Post.findByIdAndDelete(postId);
+    
+    res.json({ message: "Post deleted successfully" });
+    
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+    console.error("Error in deleting post:", err.message);
+  }
+};
+
+//a delete post controller function 
+
+
 
 
 // get a post by postId
@@ -397,5 +410,5 @@ const UpdatePost = async (req: Request, res: Response) => {
   export { 
     test, GetPostById, CreatePost, GetAllPosts, DeletePost, GetMyPosts, 
     getMyFavoritedPosts, addPostToFavorite, likeUnlikePost, commentOnPost, 
-    searchPostByTitle, getPostComments, UpdatePost 
+    searchPostByTitle, getPostComments, UpdatePost
   };
