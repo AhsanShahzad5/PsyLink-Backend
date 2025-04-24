@@ -1,5 +1,5 @@
 import express from "express";
-import { checkVerificationStatus, getClinicDetails, getDoctorDetails, markSlotsAsBusy, setAvailableSlots, setupClinic, submitPersonalDetails, submitProfessionalDetails, test, updateDoctorPersonalDetails } from "../controllers/DoctorController";
+import { checkVerificationStatus, getClinicDetails, getDoctorDetails, getUpcomingAppointments, markSlotsAsBusy, setAvailableSlots, setupClinic, submitPersonalDetails, submitProfessionalDetails, test, updateDoctorPersonalDetails } from "../controllers/DoctorController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
@@ -18,6 +18,8 @@ router.get('/get/clinic-details', isAuthenticated, getClinicDetails);
 
 router.post('/availability/set', isAuthenticated, setAvailableSlots);
 router.post('/availability/busy', isAuthenticated, markSlotsAsBusy);
+
+router.get('/appointments/upcoming', isAuthenticated, getUpcomingAppointments);
 
 //export
 export default router;
