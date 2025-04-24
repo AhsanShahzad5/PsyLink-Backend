@@ -10,11 +10,10 @@ const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to doctor' });
 }
 
-const CreatePost = async (req:Request, res:Response) => {
-
+const CreatePost = async (req: Request, res: Response) => {
     try {
-      const { userId ,title, description, img } = req.body;
-      
+      const { userId, title, description, img, series } = req.body;
+  
       if (!title || !description) {
         return res.status(400).json({ error: "Title and description are required" });
       }
@@ -25,10 +24,10 @@ const CreatePost = async (req:Request, res:Response) => {
       }
   
       // Validate title and description length
-      if (title.length > 20) {
+      if (title.length > 100) {
         return res.status(400).json({ error: "Title cannot exceed 100 characters" });
       }
-      if (description.length > 250) {
+      if (description.length > 500) {
         return res.status(400).json({ error: "Description cannot exceed 500 characters" });
       }
   
@@ -39,26 +38,33 @@ const CreatePost = async (req:Request, res:Response) => {
         imageUrl = uploadedResponse.secure_url;
       }
   
+      // Prepare the series array (convert to array if only one id is sent)
+      const seriesArray = series ? (Array.isArray(series) ? series : [series]) : [];
+  
       // Create and save the post
       const newPost = new Post({
         title,
         description,
         userId,
         img: imageUrl,
+        series: seriesArray, // Save selected series ID(s)
       });
-      await newPost.save();
   
+      await newPost.save();
       res.status(201).json(newPost);
-    } catch (err:any) {
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
       console.error("Error in creating post:", err.message);
     }
   };
+  
+
 
 //get all posts from the database with the user details
 const GetAllPosts = async (req: Request, res: Response) => {
   try {
-      const posts = await Post.find().sort({ createdAt: -1 });;
+      const posts = await Post.find().
+      populate('series', 'title').sort({ createdAt: -1 });;
       // res.json(posts)
 
       const postsWithUserDetails = await Promise.all(
@@ -120,7 +126,11 @@ const DeletePost = async (req: Request, res: Response) => {
 const GetPostById = async (req: Request, res: Response) => {
   try {
       const postId = req.params.postId;
-      const post = await Post.findById(postId);
+      const post = await Post.findById(postId)
+      .populate({
+        path: 'series',
+        select: '_id title' // Select only the _id and title fields from series
+      });
       if (!post) {
           return res.status(404).json({ error: "Post not found" });
       }
@@ -158,7 +168,7 @@ const GetMyPosts = async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
   
-        const posts = await Post.find({ userId });
+        const posts = await Post.find({ userId }).populate('series', 'title').sort({ createdAt: -1 });
         res.json(posts);
     } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -168,41 +178,43 @@ const GetMyPosts = async (req: Request, res: Response) => {
 
 // Controller to get posts favorited by a user
 const getMyFavoritedPosts = async (req: Request, res: Response) => {
-  try {
-      const userId = req.query.userId as string;
+    try {
+            const userId = req.query.userId as string;
 
-      if (!userId) {
-          return res.status(401).json({ success: false, message: "Unauthorized" });
-      }
+            if (!userId) {
+                    return res.status(401).json({ success: false, message: "Unauthorized" });
+            }
 
-      // Find posts where the user is in `favouritedBy`
-      const favoritedPosts = await Post.find({ favouritedBy: userId }).sort({ createdAt: -1 });
+            // Find posts where the user is in `favouritedBy`
+            const favoritedPosts = await Post.find({ favouritedBy: userId })
+                    .populate('series', 'title') // Populate series with its title
+                    .sort({ createdAt: -1 });
 
-      // Fetch user details for each post
-      const postsWithUserDetails = await Promise.all(
-          favoritedPosts.map(async (post) => {
-              const user = await User.findById(post.userId);
-              return {
-                  ...post.toObject(), // Convert Mongoose document to plain object
-                  user: {
-                      _id: user?._id,
-                      name: user?.name,
-                      email: user?.email,
-                      role : user?.role,
-                  },
-              };
-          })
-      );
+            // Fetch user details for each post
+            const postsWithUserDetails = await Promise.all(
+                    favoritedPosts.map(async (post) => {
+                            const user = await User.findById(post.userId);
+                            return {
+                                    ...post.toObject(), // Convert Mongoose document to plain object
+                                    user: {
+                                            _id: user?._id,
+                                            name: user?.name,
+                                            email: user?.email,
+                                            role: user?.role,
+                                    },
+                            };
+                    })
+            );
 
-      res.status(200).json({
-          success: true,
-          count: postsWithUserDetails.length,
-          posts: postsWithUserDetails,
-      });
-  } catch (error: any) {
-      console.error("Error fetching favorited posts:", error.message);
-      res.status(500).json({ success: false, error: error.message });
-  }
+            res.status(200).json({
+                    success: true,
+                    count: postsWithUserDetails.length,
+                    posts: postsWithUserDetails,
+            });
+    } catch (error: any) {
+            console.error("Error fetching favorited posts:", error.message);
+            res.status(500).json({ success: false, error: error.message });
+    }
 };
 
 
@@ -320,10 +332,70 @@ const searchPostByTitle = async (req: Request, res: Response) => {
 }
 
 
-// Controller to get user details by userId
+// Controller to update post
+// In PsyncController.ts
 
-
-
-
-
-export {test , GetPostById, CreatePost, GetAllPosts , DeletePost , GetMyPosts , getMyFavoritedPosts , addPostToFavorite , likeUnlikePost , commentOnPost , searchPostByTitle, getPostComments};
+const UpdatePost = async (req: Request, res: Response) => {
+    try {
+      const postId = req.params.postId;
+      const { userId, title, description, img } = req.body;
+  
+      // Validate the post ID
+      if (!mongoose.Types.ObjectId.isValid(postId)) {
+        return res.status(400).json({ error: "Invalid Post ID" });
+      }
+  
+      // Find the post
+      const post = await Post.findById(postId);
+      if (!post) {
+        return res.status(404).json({ error: "Post not found" });
+      }
+  
+      // Check if the user is authorized to update this post
+      if (post.userId.toString() !== userId) {
+        return res.status(403).json({ error: "You are not authorized to update this post" });
+      }
+  
+      // Validate title and description length
+      if (title && title.length > 100) {
+        return res.status(400).json({ error: "Title cannot exceed 100 characters" });
+      }
+      
+      // Handle optional image update
+      let imageUrl = post.img; // Default to existing image
+      if (img && img !== post.img) {
+        // If image changed, upload new image
+        const uploadedResponse = await cloudinary.uploader.upload(img);
+        imageUrl = uploadedResponse.secure_url;
+        
+        // Delete old image if exists
+        if (post.img) {
+          const imgId = post.img?.split("/")?.pop()?.split(".")?.[0] ?? "";
+          await cloudinary.uploader.destroy(imgId);
+        }
+      }
+  
+      // Update the post
+      const updatedPost = await Post.findByIdAndUpdate(
+        postId,
+        {
+          title: title || post.title,
+          description: description || post.description,
+          img: imageUrl,
+        },
+        { new: true } // Return the updated document
+      );
+  
+      res.status(200).json(updatedPost);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+      console.error("Error in updating post:", err.message);
+    }
+  };
+  
+  // Don't forget to export the function
+  export { 
+    test, GetPostById, CreatePost, GetAllPosts, DeletePost, GetMyPosts, 
+    getMyFavoritedPosts, addPostToFavorite, likeUnlikePost, commentOnPost, 
+    searchPostByTitle, getPostComments, UpdatePost 
+  };
