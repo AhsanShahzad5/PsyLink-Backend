@@ -1,6 +1,6 @@
 import express from "express";
 import { submitPersonalDetails, test } from "../controllers/DoctorController";
-import { addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails } from "../controllers/PatientController";
+import { addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete } from "../controllers/PatientController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
