@@ -1,5 +1,5 @@
 import express from "express";
-import { checkVerificationStatus, getClinicDetails, getDoctorDetails, markSlotsAsBusy, setAvailableSlots, setupClinic, submitPersonalDetails, submitProfessionalDetails, test, updateDoctorPersonalDetails } from "../controllers/DoctorController";
+import { checkVerificationStatus, getClinicDetails, getDoctorDetails, getDoctorProfessionalDetails, markSlotsAsBusy, setAvailableSlots, setupClinic, submitPersonalDetails, submitProfessionalDetails, test, updateDoctorPersonalDetails } from "../controllers/DoctorController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
@@ -10,6 +10,7 @@ router.get("/details/personal", isAuthenticated, getDoctorDetails);
 router.post('/details/personal', isAuthenticated, submitPersonalDetails);
 router.put('/details/personal/update', isAuthenticated, updateDoctorPersonalDetails);
 
+router.get('/details/professional', isAuthenticated, getDoctorProfessionalDetails);
 router.post('/details/professional', isAuthenticated, submitProfessionalDetails);
 router.get('/status', isAuthenticated, checkVerificationStatus);
 
