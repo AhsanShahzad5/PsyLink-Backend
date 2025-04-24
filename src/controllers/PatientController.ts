@@ -32,58 +32,107 @@ const getVerifiedDoctors = async (req: any, res: any) => {
   }
 };
 
+// const bookAppointment = async (req:any, res:any) => {
+//     try {
+//         const { doctorId, date, time } = req.body;
+//         const userId = req.user._id;
+//         if (req.user.role.toLowerCase() !== 'patient') {
+//             return res.status(403).json({ message: 'Only patient can book appointment' });
+//         }
+//         const doctor = await Doctor.findOne({_id: doctorId});
+//         if (!doctor) {
+//             return res.status(404).json({ message: 'Doctor not found' });
+//         }
+//         const availability = doctor.availability.find(avail => avail.date === date);
+//         if (!availability) {
+//             return res.status(404).json({ message: 'No availability found for the given date' });
+//         }
+//         const slot = availability.slots.find(slot => slot.time === time);
+//         if (!slot || slot.status !== 'available') {
+//             return res.status(400).json({ message: 'Slot is either not available or already taken' });
+//         }
+//         slot.status = 'booked';
+//         slot.bookedBy = userId;
+
+//         let patient = await Patient.findOne({ userId });
+//         if (!patient) {
+//             const userEmail = req.user.email; 
+//            patient = new Patient({ userId, email: userEmail });
+//         }
+
+//         //create the appointmentId
+//         const appointmentId = uuidv4();
+
+//         //added console log
+//         console.log("This is appointmentId", appointmentId);
+//          // Optional: Add to appointments list
+//          doctor.appointments.push({ appointmentId ,patientId: userId, date, time });
+//          await doctor.save();
+
+//         // Add to patient's upcoming appointments
+//         patient?.appointments?.upcoming.push({
+//             appointmentId,
+//             doctorId,
+//             date,
+//             time,
+//             status: 'booked',
+//         });
+//         await patient.save();
+
+//         res.status(200).json({ message: 'Appointment booked successfully' });
+//     } catch (error) {
+//         console.error('Error in bookAppointment:', error);
+//         res.status(500).json({ message: 'An error occurred while booking the appointment' });
+//     }
+// };
+
+
 const bookAppointment = async (req:any, res:any) => {
-    try {
-        const { doctorId, date, time } = req.body;
-        const userId = req.user._id;
-        if (req.user.role.toLowerCase() !== 'patient') {
-            return res.status(403).json({ message: 'Only patient can book appointment' });
-        }
-        const doctor = await Doctor.findOne({_id: doctorId});
-        if (!doctor) {
-            return res.status(404).json({ message: 'Doctor not found' });
-        }
-        const availability = doctor.availability.find(avail => avail.date === date);
-        if (!availability) {
-            return res.status(404).json({ message: 'No availability found for the given date' });
-        }
-        const slot = availability.slots.find(slot => slot.time === time);
-        if (!slot || slot.status !== 'available') {
-            return res.status(400).json({ message: 'Slot is either not available or already taken' });
-        }
-        slot.status = 'booked';
-        slot.bookedBy = userId;
-
-        let patient = await Patient.findOne({ userId });
-        if (!patient) {
-            const userEmail = req.user.email; 
-           patient = new Patient({ userId, email: userEmail });
-        }
-
-        //create the appointmentId
-        const appointmentId = uuidv4();
-
-         // Optional: Add to appointments list
-         doctor.appointments.push({ appointmentId ,patientId: userId, date, time });
-         await doctor.save();
-
-        // Add to patient's upcoming appointments
-        patient?.appointments?.upcoming.push({
-            appointmentId,
-            doctorId,
-            date,
-            time,
-            status: 'booked',
-        });
-        await patient.save();
-
-        res.status(200).json({ message: 'Appointment booked successfully' });
-    } catch (error) {
-        console.error('Error in bookAppointment:', error);
-        res.status(500).json({ message: 'An error occurred while booking the appointment' });
+  try {
+    const { doctorId, date, time } = req.body;
+    const userId = req.user._id;
+    
+    if (req.user.role.toLowerCase() !== 'patient') {
+      return res.status(403).json({ message: 'Only patient can book appointment' });
     }
+    
+    const doctor = await Doctor.findOne({_id: doctorId});
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+    
+    // Other validation logic...
+    
+    // Generate appointment ID
+    const appointmentId = uuidv4();
+    //console.log("This is appointmentId", appointmentId);
+    
+    // Check and fix existing appointments that may be missing appointmentId
+    doctor.appointments.forEach((appointment, index) => {
+      if (!appointment.appointmentId) {
+        doctor.appointments[index].appointmentId = uuidv4();
+      }
+    });
+    
+    // Add the new appointment
+    doctor.appointments.push({ 
+      appointmentId, 
+      patientId: userId, 
+      date, 
+      time 
+    });
+    
+    // Save doctor after fixing appointments
+    await doctor.save();
+    
+    // Rest of your code for patient, etc.
+    
+    res.status(200).json({ message: 'Appointment booked successfully' });
+  } catch (error) {
+    console.error('Error in bookAppointment:', error);
+    res.status(500).json({ message: 'An error occurred while booking the appointment' });
+  }
 };
-
 const getBookedAppointments = async (req: any, res: any) => {
   try {
     const userId = req.user._id;
@@ -206,6 +255,7 @@ export const editNote = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'An error occurred while editing the note.' });
   }
 };
+
 export const deleteNote = async (req: Request, res: Response) => {
   try {
     const { patientId, noteId } = req.body;
@@ -282,6 +332,163 @@ export const applyProgram =async (req: any, res: any) => {
     res.status(500).send("Server error");
   }
 };
+
+export const getOngoingPrograms = async (req: any, res: any) => {
+  try {
+    const currentDate = new Date();
+    
+    // Find the current user and their ongoing programs
+    const userId = req.user._id;
+    
+    const patient = await Patient.findOne({ userId });
+    if (!patient) return res.status(404).send("Patient not found");
+
+
+    // Filter for ongoing programs where current date falls within program dates
+    const ongoingPrograms = patient.programs!.applied.filter(program => {
+      const startDate = new Date(program.startDate);
+      const endDate = new Date(program.endDate);
+      return currentDate >= startDate && currentDate <= endDate;
+    });
+
+    if (ongoingPrograms.length === 0) {
+      return res.status(200).json({ 
+        message: "No ongoing programs found", 
+        programs: [] 
+      });
+    }
+
+    // For each ongoing program, find today's tasks
+    const programsWithTodaysTasks = ongoingPrograms.map(program => {
+      // Convert dates to string format for comparison (YYYY-MM-DD)
+      const todayDateString = currentDate.toISOString().split('T')[0];
+      
+      // Find today's daily progress
+      const todayProgress = program.dailyProgress.find(day => {
+        const dayDateString = new Date(day.date).toISOString().split('T')[0];
+        return dayDateString === todayDateString;
+      });
+
+      return {
+        programId: program._id,
+        planName: program.planName,
+        startDate: program.startDate,
+        endDate: program.endDate,
+        todayTasks: todayProgress ? todayProgress.tasks : [],
+        todayProgressId: todayProgress ? todayProgress._id : null,
+        // Calculate progress
+        daysCompleted: getCurrentDayNumber(program.startDate, currentDate),
+        totalDays: getDaysBetweenDates(program.startDate, program.endDate),
+        tasksCompleted: program.dailyProgress.reduce((sum, day) => {
+          return sum + day.tasks.filter(task => task.completed).length;
+        }, 0),
+        totalTasks: todayProgress ? todayProgress.tasks.length : 0
+      };
+    });
+
+    return res.status(200).json({
+      programs: programsWithTodaysTasks
+    });
+  } catch (error) {
+    console.error("Error fetching ongoing programs:", error);
+    if (error instanceof Error) {
+      return res.status(500).json({
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
+    return res.status(500).json({ message: "Internal server error", error:"Unkown error" });
+  }
+}
+
+export const markTaskComplete = async (req: any, res: any) => {
+  try {
+    const { programId, dailyProgressId, taskIndex } = req.body;
+    
+    if (!programId || !dailyProgressId || taskIndex === undefined) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const userId = req.user._id;
+    
+    const patient = await Patient.findOne({ userId });
+    if (!patient) return res.status(404).send("Patient not found");
+
+    // Find the specific program
+    const programIndex = patient.programs!.applied.findIndex(p => 
+      p._id.toString() === programId
+    );
+
+    if (programIndex === -1) {
+      return res.status(404).json({ message: "Program not found" });
+    }
+
+    // Find the specific daily progress
+    const dailyProgressIndex = patient.programs!.applied[programIndex].dailyProgress.findIndex(d => 
+      d._id.toString() === dailyProgressId
+    );
+
+    if (dailyProgressIndex === -1) {
+      return res.status(404).json({ message: "Daily progress not found" });
+    }
+
+    // Find the specific task and toggle its completion status
+    if (taskIndex >= 0 && taskIndex < patient.programs!.applied[programIndex].dailyProgress[dailyProgressIndex].tasks.length) {
+      // Toggle the completed status
+      const currentStatus = patient.programs!.applied[programIndex].dailyProgress[dailyProgressIndex].tasks[taskIndex].completed;
+      patient.programs!.applied[programIndex].dailyProgress[dailyProgressIndex].tasks[taskIndex].completed = !currentStatus;
+      
+      await patient.save();
+      
+      return res.status(200).json({ 
+        message: `Task ${currentStatus ? 'unmarked' : 'marked'} as complete`,
+        completed: !currentStatus
+      });
+    } else {
+      return res.status(404).json({ message: "Task not found" });
+    }
+  } catch (error) {
+    console.error("Error marking task as complete:", error);
+
+    if (error instanceof Error) {
+      return res.status(500).json({
+        message: "Internal server error",
+        error: error.message,
+      });
+
+    }
+    return res.status(500).json({ message: "Internal server error", error: "Unkown error" });
+  }
+};
+
+// Helper function to calculate the current day number in the program
+function getCurrentDayNumber(startDate: string | Date, currentDate: string | Date): number {
+  const start = new Date(startDate);
+  const current = new Date(currentDate);
+
+  // Reset time part to only compare dates
+  start.setHours(0, 0, 0, 0);
+  current.setHours(0, 0, 0, 0);
+
+  const diffTime = current.getTime() - start.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  return diffDays + 1;
+}
+
+// Helper function to calculate total days between two dates
+function getDaysBetweenDates(startDate: string | Date, endDate: string | Date): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
+  const diffTime = end.getTime() - start.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  return diffDays ;
+}
 
 
 const submitPatientPersonalDetails = async (req: any, res: any) => {
