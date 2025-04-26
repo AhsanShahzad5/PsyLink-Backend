@@ -87,52 +87,6 @@ const bookAppointment = async (req:any, res:any) => {
 };
 
 
-const bookAppointment = async (req:any, res:any) => {
-  try {
-    const { doctorId, date, time } = req.body;
-    const userId = req.user._id;
-    
-    if (req.user.role.toLowerCase() !== 'patient') {
-      return res.status(403).json({ message: 'Only patient can book appointment' });
-    }
-    
-    const doctor = await Doctor.findOne({_id: doctorId});
-    if (!doctor) {
-      return res.status(404).json({ message: 'Doctor not found' });
-    }
-    
-    // Other validation logic...
-    
-    // Generate appointment ID
-    const appointmentId = uuidv4();
-    //console.log("This is appointmentId", appointmentId);
-    
-    // Check and fix existing appointments that may be missing appointmentId
-    doctor.appointments.forEach((appointment, index) => {
-      if (!appointment.appointmentId) {
-        doctor.appointments[index].appointmentId = uuidv4();
-      }
-    });
-    
-    // Add the new appointment
-    doctor.appointments.push({ 
-      appointmentId, 
-      patientId: userId, 
-      date, 
-      time 
-    });
-    
-    // Save doctor after fixing appointments
-    await doctor.save();
-    
-    // Rest of your code for patient, etc.
-    
-    res.status(200).json({ message: 'Appointment booked successfully' });
-  } catch (error) {
-    console.error('Error in bookAppointment:', error);
-    res.status(500).json({ message: 'An error occurred while booking the appointment' });
-  }
-};
 const getBookedAppointments = async (req: any, res: any) => {
   try {
     const userId = req.user._id;
