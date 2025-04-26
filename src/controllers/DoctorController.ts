@@ -362,7 +362,7 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
       const doctor = await Doctor.findOne({userId: doctorId});
   
       if (!doctor) {
-        return res.status(404).json({ message: 'Doctor not found' });
+        return res.status(404).json({ message: 'Doctor not found or not Verified. Check Clinic' });
       }
   
       const currentDate = new Date();
