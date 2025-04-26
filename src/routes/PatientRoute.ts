@@ -1,6 +1,6 @@
 import express from "express";
 import { submitPersonalDetails, test } from "../controllers/DoctorController";
-import { addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete } from "../controllers/PatientController";
+import {moodLogging, addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete, getTodayMood, getMoodsForLast15Days } from "../controllers/PatientController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
@@ -21,5 +21,9 @@ router.get('/notes/getallnotes/:patientId', getAllNotes);
 router.post('/programs/applyProgram',isAuthenticated, applyProgram);
 router.get('/getOngoingPrograms',isAuthenticated, getOngoingPrograms);
 router.post('/markTaskComplete',isAuthenticated, markTaskComplete);
+
+router.post('/moodLogging',isAuthenticated, moodLogging);
+router.get('/getTodayMood',isAuthenticated, getTodayMood);
+router.get('/getMoodHistory',isAuthenticated, getMoodsForLast15Days);
 //export
 export default router;

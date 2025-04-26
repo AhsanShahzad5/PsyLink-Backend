@@ -29,7 +29,16 @@ const submitPersonalDetails = async (req: any, res: any) => {
             doctorId: doctor._id,
             message: `Doctor ${fullName} has submitted personal details for verification.`,
         });
-        res.status(200).json({ message: 'Personal details submitted successfully' });
+
+      // Update profileCompleted status on User model
+      await User.findByIdAndUpdate(userId, { profileCompleted: true });
+    
+      // Return user data with updated profileCompleted status
+      const updatedUser = await User.findById(userId).select('-password');
+    
+        res.status(200).json({ message: 'Personal details submitted successfully' ,
+          user: updatedUser
+         });
     } catch (error) {
         console.error('Error in submitPersonalDetails:', error);
         res.status(500).json({ message: 'An error occurred while submitting personal details' });
@@ -89,6 +98,7 @@ const submitProfessionalDetails = async (req: any, res: any) => {
         doctorId: doctor._id,
         message: `${specialisation} Doctor ${fullName} has submitted personal details for verification.`,
     });
+    
 
     res.status(200).json({ message: 'Professional details submitted successfully' });
 };
@@ -286,8 +296,17 @@ const updateDoctorPersonalDetails = async (req: any, res: any) => {
       };
   
       await doctor.save();
+
+       // Update profileCompleted status on User model
+       await User.findByIdAndUpdate(userId, { profileCompleted: true });
+    
+       // Return user data with updated profileCompleted status
+       const updatedUser = await User.findById(userId).select('-password');
+     
   
-      res.status(200).json({ message: 'Personal details updated successfully' });
+      res.status(200).json({ message: 'Personal details updated successfully' ,
+        user: updatedUser
+       });
     } catch (error) {
       console.error('Error in updateDoctorPersonalDetails:', error);
       res.status(500).json({ message: 'An error occurred while updating personal details' });
