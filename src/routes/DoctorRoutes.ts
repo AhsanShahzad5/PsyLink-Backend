@@ -1,5 +1,5 @@
 import express from "express";
-import { checkVerificationStatus, getClinicDetails, getDoctorDetails, getDoctorProfessionalDetails, getUpcomingAppointments, markSlotsAsBusy, setAvailableSlots, setupClinic, submitPersonalDetails, submitProfessionalDetails, test, updateDoctorPersonalDetails } from "../controllers/DoctorController";
+import { checkVerificationStatus, getClinicDetails, getDetailsForPrescription, getDoctorDetails, getDoctorProfessionalDetails, getUpcomingAppointments, markSlotsAsBusy, savePrescription, setAvailableSlots, setupClinic, submitPersonalDetails, submitProfessionalDetails, test, updateDoctorPersonalDetails } from "../controllers/DoctorController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
@@ -21,6 +21,9 @@ router.post('/availability/set', isAuthenticated, setAvailableSlots);
 router.post('/availability/busy', isAuthenticated, markSlotsAsBusy);
 
 router.get('/appointments/upcoming', isAuthenticated, getUpcomingAppointments);
+router.get('/:appointmentId/details', isAuthenticated, getDetailsForPrescription);
+
+router.post('/prescription/save', isAuthenticated, savePrescription);
 
 //export
 export default router;

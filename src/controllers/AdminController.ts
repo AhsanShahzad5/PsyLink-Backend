@@ -6,6 +6,7 @@ import Admin from '../models/AdminModel';
 import Doctor from '../models/DoctorModel';
 import Patient from '../models/PatientModel';
 import User from '../models/UserModel';
+import Appointment from '../models/AppointmentModel';
 
 const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to doctor' });
@@ -274,6 +275,32 @@ const deleteDoctor = async (req: any, res: any) => {
     }
 };
 
+const getAllSessions = async (req: any, res: any) => {
+    try {
+      console.log("Fetching all appointments as sessions");
+      
+      const appointments = await Appointment.find()
+        .populate('patientId', 'name email')
+        .populate('doctorId', 'name email')
+        .sort({ date: 1, time: 1 });
+      
+      console.log(`Found ${appointments.length} appointments`);
+  
+      return res.status(200).json({
+        success: true,
+        count: appointments.length,
+        data: appointments
+      });
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Server error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+  
 // Dashboard statistics
 // const getDashboardStats = async (req: any, res: any) => {
 //     try {
@@ -382,7 +409,8 @@ export {
     getAppointmentDetails,
     deletePatient,
     deleteDoctor,
-    getAllDoctors
+    getAllDoctors,
+    getAllSessions
    // getDashboardStats
     // banUser,
     // unbanUser,

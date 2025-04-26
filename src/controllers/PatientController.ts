@@ -6,6 +6,8 @@ import Doctor from '../models/DoctorModel';
 import Patient from '../models/PatientModel';
 import Note from '../models/NotesModel';
 import { v4 as uuidv4 } from 'uuid';
+import Appointment from '../models/AppointmentModel'
+import Prescription from '../models/PrescriptionModel';
 
 const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to patient' });
@@ -32,107 +34,143 @@ const getVerifiedDoctors = async (req: any, res: any) => {
   }
 };
 
+const bookAppointment = async (req:any, res:any) => {
+    try {
+        const { doctorId, date, time } = req.body;
+        const userId = req.user._id;
+
+        // Check if user is a patient
+        if (req.user.role.toLowerCase() !== 'patient') {
+            return res.status(403).json({ message: 'Only patient can book appointment' });
+        }
+        
+         // Find doctor
+        const doctor = await Doctor.findOne({_id: doctorId});
+        if (!doctor) {
+            return res.status(404).json({ message: 'Doctor not found' });
+        }
+
+        //check availability of doc
+        const availability = doctor.availability.find(avail => avail.date === date);
+        if (!availability) {
+            return res.status(404).json({ message: 'No availability found for the given date' });
+        }
+
+        //check slot availability
+        const slot = availability.slots.find(slot => slot.time === time);
+        if (!slot || slot.status !== 'available') {
+            return res.status(400).json({ message: 'Slot is either not available or already taken' });
+        }
+
+        //mark as booked
+        slot.status = 'booked';
+        slot.bookedBy = userId;
+
+
+        //find kreyga patient vrna create usi waqt
+        let patient = await Patient.findOne({ userId });
+        if (!patient) {
+            const userEmail = req.user.email; 
+           patient = new Patient({ userId, email: userEmail });
+        }
+
+        // get doc and patient names
+        const user = await User.findById(userId);
+        const patientName = patient.personalInformation?.fullName || user.name || user.email;
+        
+        const doctorUser = await User.findById(doctor.userId);
+        const doctorName = doctor.personalDetails?.fullName || doctorUser.name || doctorUser.email;
+
+        //create the appointmentId
+        const appointmentId = uuidv4();
+
+        //added console log
+        console.log("This is appointmentId", appointmentId);
+
+        //creates new appointment and saves in db
+        const appointment = new Appointment({
+          appointmentId,
+          date,
+          time,
+          patientId: userId,
+          patientName,
+          doctorId: doctor.userId,
+          doctorName,
+          status: 'booked',
+      });
+      
+      await appointment.save();
+
+
+         //update docs appointment list
+         doctor.appointments.push({ appointmentId ,patientId: userId, date, time });
+         await doctor.save();
+
+        // Add to patient's upcoming appointments
+        patient?.appointments?.upcoming.push({
+            appointmentId,
+            doctorId,
+            date,
+            time,
+            status: 'booked',
+        });
+        await patient.save();
+
+        res.status(200).json({ message: 'Appointment booked successfully' });
+    } catch (error) {
+        console.error('Error in bookAppointment:', error);
+        res.status(500).json({ message: 'An error occurred while booking the appointment' });
+    }
+};
+
+
 // const bookAppointment = async (req:any, res:any) => {
-//     try {
-//         const { doctorId, date, time } = req.body;
-//         const userId = req.user._id;
-//         if (req.user.role.toLowerCase() !== 'patient') {
-//             return res.status(403).json({ message: 'Only patient can book appointment' });
-//         }
-//         const doctor = await Doctor.findOne({_id: doctorId});
-//         if (!doctor) {
-//             return res.status(404).json({ message: 'Doctor not found' });
-//         }
-//         const availability = doctor.availability.find(avail => avail.date === date);
-//         if (!availability) {
-//             return res.status(404).json({ message: 'No availability found for the given date' });
-//         }
-//         const slot = availability.slots.find(slot => slot.time === time);
-//         if (!slot || slot.status !== 'available') {
-//             return res.status(400).json({ message: 'Slot is either not available or already taken' });
-//         }
-//         slot.status = 'booked';
-//         slot.bookedBy = userId;
-
-//         let patient = await Patient.findOne({ userId });
-//         if (!patient) {
-//             const userEmail = req.user.email; 
-//            patient = new Patient({ userId, email: userEmail });
-//         }
-
-//         //create the appointmentId
-//         const appointmentId = uuidv4();
-
-//         //added console log
-//         console.log("This is appointmentId", appointmentId);
-//          // Optional: Add to appointments list
-//          doctor.appointments.push({ appointmentId ,patientId: userId, date, time });
-//          await doctor.save();
-
-//         // Add to patient's upcoming appointments
-//         patient?.appointments?.upcoming.push({
-//             appointmentId,
-//             doctorId,
-//             date,
-//             time,
-//             status: 'booked',
-//         });
-//         await patient.save();
-
-//         res.status(200).json({ message: 'Appointment booked successfully' });
-//     } catch (error) {
-//         console.error('Error in bookAppointment:', error);
-//         res.status(500).json({ message: 'An error occurred while booking the appointment' });
+//   try {
+//     const { doctorId, date, time } = req.body;
+//     const userId = req.user._id;
+    
+//     if (req.user.role.toLowerCase() !== 'patient') {
+//       return res.status(403).json({ message: 'Only patient can book appointment' });
 //     }
+    
+//     const doctor = await Doctor.findOne({_id: doctorId});
+//     if (!doctor) {
+//       return res.status(404).json({ message: 'Doctor not found' });
+//     }
+    
+//     // Other validation logic...
+    
+//     // Generate appointment ID
+//     const appointmentId = uuidv4();
+//     //console.log("This is appointmentId", appointmentId);
+    
+//     // Check and fix existing appointments that may be missing appointmentId
+//     doctor.appointments.forEach((appointment, index) => {
+//       if (!appointment.appointmentId) {
+//         doctor.appointments[index].appointmentId = uuidv4();
+//       }
+//     });
+    
+//     // Add the new appointment
+//     doctor.appointments.push({ 
+//       appointmentId, 
+//       patientId: userId, 
+//       date, 
+//       time 
+//     });
+    
+//     // Save doctor after fixing appointments
+//     await doctor.save();
+    
+//     // Rest of your code for patient, etc.
+    
+//     res.status(200).json({ message: 'Appointment booked successfully' });
+//   } catch (error) {
+//     console.error('Error in bookAppointment:', error);
+//     res.status(500).json({ message: 'An error occurred while booking the appointment' });
+//   }
 // };
 
-
-const bookAppointment = async (req:any, res:any) => {
-  try {
-    const { doctorId, date, time } = req.body;
-    const userId = req.user._id;
-    
-    if (req.user.role.toLowerCase() !== 'patient') {
-      return res.status(403).json({ message: 'Only patient can book appointment' });
-    }
-    
-    const doctor = await Doctor.findOne({_id: doctorId});
-    if (!doctor) {
-      return res.status(404).json({ message: 'Doctor not found' });
-    }
-    
-    // Other validation logic...
-    
-    // Generate appointment ID
-    const appointmentId = uuidv4();
-    //console.log("This is appointmentId", appointmentId);
-    
-    // Check and fix existing appointments that may be missing appointmentId
-    doctor.appointments.forEach((appointment, index) => {
-      if (!appointment.appointmentId) {
-        doctor.appointments[index].appointmentId = uuidv4();
-      }
-    });
-    
-    // Add the new appointment
-    doctor.appointments.push({ 
-      appointmentId, 
-      patientId: userId, 
-      date, 
-      time 
-    });
-    
-    // Save doctor after fixing appointments
-    await doctor.save();
-    
-    // Rest of your code for patient, etc.
-    
-    res.status(200).json({ message: 'Appointment booked successfully' });
-  } catch (error) {
-    console.error('Error in bookAppointment:', error);
-    res.status(500).json({ message: 'An error occurred while booking the appointment' });
-  }
-};
 const getBookedAppointments = async (req: any, res: any) => {
   try {
     const userId = req.user._id;
@@ -343,6 +381,13 @@ export const getOngoingPrograms = async (req: any, res: any) => {
     const patient = await Patient.findOne({ userId });
     if (!patient) return res.status(404).send("Patient not found");
 
+    // Check programs with end dates in the past and move them to previous
+    patient.programs!.applied.forEach((program, index) => {
+      const endDate = new Date(program.endDate);
+      if (endDate < currentDate) {
+        patient.programs!.previous.push(program);
+      }
+    });
 
     // Filter for ongoing programs where current date falls within program dates
     const ongoingPrograms = patient.programs!.applied.filter(program => {
@@ -369,6 +414,11 @@ export const getOngoingPrograms = async (req: any, res: any) => {
         return dayDateString === todayDateString;
       });
 
+      // Calculate today's completed tasks instead of all days
+      const tasksCompletedToday = todayProgress 
+        ? todayProgress.tasks.filter(task => task.completed).length 
+        : 0;
+
       return {
         programId: program._id,
         planName: program.planName,
@@ -379,9 +429,7 @@ export const getOngoingPrograms = async (req: any, res: any) => {
         // Calculate progress
         daysCompleted: getCurrentDayNumber(program.startDate, currentDate),
         totalDays: getDaysBetweenDates(program.startDate, program.endDate),
-        tasksCompleted: program.dailyProgress.reduce((sum, day) => {
-          return sum + day.tasks.filter(task => task.completed).length;
-        }, 0),
+        tasksCompleted: tasksCompletedToday,
         totalTasks: todayProgress ? todayProgress.tasks.length : 0
       };
     });
@@ -578,7 +626,35 @@ const getPatientDetails = async (req: any, res: any) => {
   }
 };
 
+export const getPatientPrescriptions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { patientId } = req.params;
 
+    if (!patientId) {
+      res.status(400).json({
+        success: false,
+        message: 'Patient ID is required'
+      });
+      return;
+    }
+
+    // Find all prescriptions for the patient
+    const prescriptions = await Prescription.find({ patientId }).sort({ date: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: prescriptions.length,
+      data: prescriptions
+    });
+  } catch (error) {
+    console.error('Error fetching patient prescriptions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch patient prescriptions',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
 
 
 export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments, submitPatientPersonalDetails , getPatientDetails , updatePatientPersonalDetails}

@@ -1,6 +1,6 @@
 import express from "express";
 import { submitPersonalDetails, test } from "../controllers/DoctorController";
-import { addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete } from "../controllers/PatientController";
+import { addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete, getPatientPrescriptions } from "../controllers/PatientController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
@@ -21,5 +21,6 @@ router.get('/notes/getallnotes/:patientId', getAllNotes);
 router.post('/programs/applyProgram',isAuthenticated, applyProgram);
 router.get('/getOngoingPrograms',isAuthenticated, getOngoingPrograms);
 router.post('/markTaskComplete',isAuthenticated, markTaskComplete);
+router.get('/prescription/:patientId',getPatientPrescriptions)
 //export
 export default router;

@@ -4,6 +4,8 @@ import AdminNotification from '../models/AdminNotification';
 import mongoose from 'mongoose';
 import User from '../models/UserModel'; // Assuming you have a User model
 import Patient from '../models/PatientModel'; // Assuming you have a Patient model
+import Appointment from '../models/AppointmentModel';
+import Prescription, { IPrescription } from '../models/PrescriptionModel';
 
 const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to doctor' });
@@ -504,6 +506,57 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
     }
   };
   
+
+export const getDetailsForPrescription = async (req: any, res: any) => {
+  try {
+      const { appointmentId } = req.params;
+      
+      // Find appointment
+      const appointment = await Appointment.findOne({ appointmentId });
+      
+      if (!appointment) {
+          return res.status(404).json({ message: 'Appointment not found' });
+      }
+      
+      // Get patient details
+      const patient = await Patient.findOne({ userId: appointment.patientId });
+      
+      if (!patient) {
+          return res.status(404).json({ message: 'Patient not found' });
+      }
+      
+      // Get doctor details
+      const doctor = await Doctor.findOne({ userId: appointment.doctorId });
+      
+      if (!doctor) {
+          return res.status(404).json({ message: 'Doctor not found' });
+      }
+      
+      // Compile prescription details
+      const prescriptionDetails = {
+          appointmentId: appointment.appointmentId,
+          date: appointment.date,
+          time: appointment.time,
+          patientInfo: {
+              patientId: appointment.patientId,
+              name: appointment.patientName,
+              gender: patient.personalInformation?.gender || 'Not specified',
+              age: patient.personalInformation?.age || 'Not specified'
+          },
+          doctorInfo: {
+              doctorId: appointment.doctorId,
+              name: appointment.doctorName,
+              specialisation: doctor.professionalDetails?.specialisation || 'Not specified',
+              pmdcNumber: doctor.professionalDetails?.pmdcNumber || 'Not specified'
+          }
+      };
+      
+      res.status(200).json(prescriptionDetails);
+  } catch (error) {
+      console.error('Error in getDetailsForPrescription:', error);
+      res.status(500).json({ message: 'An error occurred while fetching prescription details' });
+  }
+}; 
   
   // Helper function to convert month name to month number
   function getMonthNumber(monthName: string): number {
@@ -515,6 +568,64 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
     
     return months[monthName.toLowerCase()] || 1; // Default to January if not found
   }
+
+
+  export const savePrescription = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const {
+        doctorName,
+        doctorId,
+        patientId,
+        patientName,
+        patientGender,
+        patientAge,
+        date,
+        appointmentId,
+        prescription
+      } = req.body;
+  
+      // Validate required fields
+      if (!doctorName || !doctorId || !patientId || !patientName || !patientGender || !patientAge || !appointmentId || !prescription) {
+        res.status(400).json({ success: false, message: 'Missing required fields' });
+        return;
+      }
+  
+      // Create a new prescription document
+      const newPrescription = new Prescription({
+        prescriptionId: appointmentId,
+        date: date ? new Date(date) : new Date(),
+        doctorName,
+        doctorId,
+        patientId,
+        patientName,
+        patientGender,
+        patientAge,
+        prescription: prescription.filter((item: { medicine: string; instructions: string }) => 
+          item.medicine.trim() !== "" && item.instructions.trim() !== ""
+        ),
+        appointmentId
+      });
+  
+      // Save the prescription to the database
+      const savedPrescription = await newPrescription.save();
+  
+      res.status(201).json({
+        success: true,
+        data: savedPrescription,
+        message: 'Prescription saved successfully'
+      });
+    } catch (error) {
+      console.error('Error saving prescription:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save prescription',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+  
+  
+  
 
 export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus,setupClinic, setAvailableSlots, markSlotsAsBusy, getClinicDetails 
     , updateDoctorPersonalDetails , getDoctorDetails , getDoctorProfessionalDetails
