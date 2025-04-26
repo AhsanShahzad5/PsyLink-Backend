@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import Doctor from '../models/DoctorModel';
 import AdminNotification from '../models/AdminNotification';
+import { v2 as cloudinary } from "cloudinary";
 import mongoose from 'mongoose';
 import User from '../models/UserModel'; // Assuming you have a User model
 import Patient from '../models/PatientModel'; // Assuming you have a Patient model
@@ -78,7 +79,7 @@ const getDoctorProfessionalDetails = async (req: any, res: any) => {
     }
   };
 
-const submitProfessionalDetails = async (req: any, res: any) => {
+  const submitProfessionalDetails = async (req: any, res: any) => {
     const { specialisation, pmdcNumber, educationalBackground, licenseImage, cnicNumber, availableHours, consultationFee, bankDetails } = req.body;
     const userId = req.user._id;
     if (req.user.role.toLowerCase() !== 'doctor') {
@@ -144,41 +145,6 @@ const setupClinic = async (req: any, res: any) => {
     await doctor.save();
 
     res.status(200).json({ message: 'Clinic setup successfully' });
-};
-
-const getClinicDetails = async (req: any, res: any) => {
-    try {
-        const userId = req.user._id;
-        if (req.user.role.toLowerCase() !== 'doctor') {
-            return res.status(403).json({ message: 'Only doctors can access clinic data' });
-        }
-        const doctor = await Doctor.findOne({ userId }).select("clinic availability");
-        if (!doctor) {
-            return res.status(404).json({ message: 'Doctor not found' });
-        }
-        if (!doctor.clinic) {
-            return res.status(400).json({ message: 'Clinic data is not set up yet' });
-        }
-        const { fullName, specialisation, educationBackground, image, consultationFee, city, country, startTime, endTime } =
-            doctor.clinic;
-        res.status(200).json({
-            clinic: {
-                fullName,
-                specialisation,
-                educationBackground,
-                image,
-                consultationFee,
-                city,
-                country,
-                startTime,
-                endTime,
-            },
-            availability: doctor.availability || []
-        });
-    } catch (error) {
-        console.error("Error fetching clinic details:", error);
-        res.status(500).json({ message: "An error occurred while fetching clinic details." });
-    }
 };
 
 const setAvailableSlots = async (req: any, res: any) => {
@@ -269,273 +235,121 @@ const markSlotsAsBusy = async (req: any, res: any) => {
     }
 };
 
-const updateDoctorPersonalDetails = async (req: any, res: any) => {
+
+const getClinicDetails = async (req: any, res: any) => {
     try {
-      const { fullName, dateOfBirth, gender, country, city, phoneNo, image } = req.body;
+      const doctorId = req.user._id; // Corrected from req.user.id -> req.user._id
+      const doctor = await Doctor.findOne({ userId: doctorId });
+  
+      if (!doctor) {
+        return res.status(404).json({ message: 'Doctor not found' });
+      }
+  
+      return res.status(200).json({ success: true, clinic: doctor.clinic || {} });
+    } catch (error) {
+      console.error('Error in getClinicDetails:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  };
+  
+  const saveClinicDetails = async (req: any, res: any) => {
+    try {
+      const doctorId = req.user._id;
+      const {
+        fullName,
+        specialisation,
+        educationBackground,
+        description,
+        image, // yeh aa raha req.body se
+        consultationFee,
+        city,
+        country,
+        startTime,
+        endTime,
+      } = req.body;
+  
+      let doctor = await Doctor.findOne({ userId: doctorId });
+  
+      if (!doctor) {
+        return res.status(404).json({ message: 'Doctor not found' });
+      }
+  
+      let uploadedImageUrl = "";
+  
+      // 🔹 If image provided, upload to Cloudinary
+      if (image) {
+        const uploadedResponse = await cloudinary.uploader.upload(image);
+        uploadedImageUrl = uploadedResponse.secure_url;
+      }
+  
+      // 🔹 Update clinic details
+      doctor.clinic = {
+        fullName,
+        specialisation,
+        educationBackground,
+        description,
+        image: uploadedImageUrl || doctor.clinic?.image || "", // agar naya image nahi mila toh purana rahe
+        consultationFee,
+        city,
+        country,
+        startTime,
+        endTime,
+      };
+  
+      await doctor.save();
+  
+      return res.status(200).json({ success: true, clinic: doctor.clinic });
+    } catch (error) {
+      console.error('Error in saveClinicDetails:', error);
+      return res.status(500).json({ message: 'Failed to save clinic details' });
+    }
+  };
+
+  const getAvailability = async (req: any, res: any) => {
+    try {
       const userId = req.user._id;
   
-      if (req.user.role.toLowerCase() !== 'doctor') {
-        return res.status(403).json({ message: 'Only doctors can update personal details' });
+      if (req.user.role.toLowerCase() !== "doctor") {
+        return res.status(403).json({ message: "Only doctors can view availability" });
       }
   
       const doctor = await Doctor.findOne({ userId });
   
       if (!doctor) {
-        return res.status(404).json({ message: 'Doctor not found. Please complete registration first.' });
+        return res.status(404).json({ message: "Doctor not found" });
       }
   
-      doctor.personalDetails = {
-        ...doctor.personalDetails, // Preserve existing fields not being updated
-        fullName,
-        dateOfBirth,
-        gender,
-        country,
-        city,
-        phoneNo,
-        image,
-      };
+      const currentDate = new Date(); // Current Date and Time
   
-      await doctor.save();
-
-       // Update profileCompleted status on User model
-       await User.findByIdAndUpdate(userId, { profileCompleted: true });
-    
-       // Return user data with updated profileCompleted status
-       const updatedUser = await User.findById(userId).select('-password');
-     
+      const availabilityDetails = doctor.availability
+        .filter((day: any) => {
+          const slotDate = new Date(day.date);
+          // Only include slots with date today or future
+          return slotDate >= new Date(currentDate.toDateString());
+        })
+        .map((day: any) => {
+          const availableSlots = day.slots.filter((slot: any) => slot.status === "available").map((slot: any) => slot.time);
+          const busySlots = day.slots.filter((slot: any) => slot.status === "busy").map((slot: any) => slot.time);
+          const bookedSlots = day.slots.filter((slot: any) => slot.status === "booked").map((slot: any) => slot.time);
   
-      res.status(200).json({ message: 'Personal details updated successfully' ,
-        user: updatedUser
-       });
+          return {
+            date: day.date,
+            availableSlots,
+            busySlots,
+            bookedSlots
+          };
+        });
+  
+      return res.status(200).json({ success: true, availability: availabilityDetails });
     } catch (error) {
-      console.error('Error in updateDoctorPersonalDetails:', error);
-      res.status(500).json({ message: 'An error occurred while updating personal details' });
+      console.error("Error in getAvailability:", error);
+      return res.status(500).json({ message: "Failed to fetch availability" });
     }
   };
-
- const getDoctorDetails = async (req: any, res: Response) => {
-  try {
-    const userId = req.user._id;
-
-    const doctor = await Doctor.findOne({ userId });
-
-    if (!doctor) {
-      return res.status(404).json({ message: "Doctor not found" });
-    }
-
-    const personalDetails = doctor.personalDetails;
-
-    if (!personalDetails) {
-      return res.status(200).json({ message: "No personal details found yet", personalDetails: null });
-    }
-
-    res.status(200).json({
-      message: "Doctor personal details fetched successfully",
-      personalDetails,
-    });
-  } catch (error) {
-    console.error("Error fetching doctor details:", error);
-    res.status(500).json({ message: "An error occurred while fetching doctor details" });
-  }
-};
-
-//  Get upcoming appointments for a doctor and clean up past appointments
-//  @param req Request containing doctorId
-//  @param res Response with upcoming appointments
- 
-export const getUpcomingAppointments = async (req: Request, res: Response) => {
-    try {
-      // Handle doctorId from either params or query, ensuring it's a string
-      const doctorId = req.params.doctorId || 
-                      (req.query.doctorId ? String(req.query.doctorId) : undefined);
-  
-      if (!doctorId) {
-        return res.status(400).json({ message: 'Doctor ID is required' });
-      }
-  
-      // Now we can safely check if it's a valid ObjectId
-      if (!mongoose.Types.ObjectId.isValid(doctorId)) {
-        return res.status(400).json({ message: 'Invalid Doctor ID format' });
-      }
-  
-      // Find the doctor
-      const doctor = await Doctor.findOne({userId: doctorId});
-  
-      if (!doctor) {
-        return res.status(404).json({ message: 'Doctor not found or not Verified. Check Clinic' });
-      }
-  
-      const currentDate = new Date();
-      const upcomingAppointments = [];
-      const appointmentsToKeep = [];
-  
-      // Process each appointment
-      if (doctor.appointments && Array.isArray(doctor.appointments)) {
-        for (const appointment of doctor.appointments) {
-          // Skip appointments with missing data
-          if (!appointment.date || !appointment.time || typeof appointment.date !== 'string' || typeof appointment.time !== 'string') {
-            continue;
-          }
-          
-          try {
-            let appointmentDateTime: Date;
-            
-            // Check date format and parse accordingly
-            if (appointment.date.includes('-')) {
-              // Format: YYYY-MM-DD (e.g., 2025-04-26)
-              const [year, month, day] = appointment.date.split('-').map(num => parseInt(num, 10));
-              
-              // Parse time (assuming format like "9:00am - 10:00am")
-              const timeStart = appointment.time.split(' - ')[0];
-              const isPM = timeStart.toLowerCase().includes('pm');
-              const isAM = timeStart.toLowerCase().includes('am');
-              
-              // Extract hours and minutes from time
-              const timeWithoutAMPM = timeStart.replace(/am|pm/i, '').trim();
-              const [hourStr, minuteStr] = timeWithoutAMPM.split(':');
-              
-              let hour = parseInt(hourStr, 10);
-              let minute = minuteStr ? parseInt(minuteStr, 10) : 0;
-              
-              // Convert to 24-hour format
-              if (isPM && hour < 12) hour += 12;
-              if (isAM && hour === 12) hour = 0;
-              
-              appointmentDateTime = new Date(year, month - 1, day, hour, minute);
-            } else {
-              // Format: "15th October,2024"
-              const dateParts = appointment.date.split(/[,\s]+/);
-              if (dateParts.length < 3) continue; // Skip if date format is invalid
-              
-              const [day, month, year] = dateParts;
-              const cleanMonth = month.replace(/(?:st|nd|rd|th)$/, '');
-              const appointmentMonth = getMonthNumber(cleanMonth);
-              const appointmentDay = parseInt(day.replace(/\D/g, ''));
-              const appointmentYear = parseInt(year);
-              
-              if (isNaN(appointmentDay) || isNaN(appointmentYear)) continue;
-              
-              // Parse time (assuming format like "01:30pm - 02:30pm")
-              const timeParts = appointment.time.split(' - ');
-              if (timeParts.length < 1) continue;
-              
-              const timeStart = timeParts[0];
-              if (timeStart.length < 4) continue;
-              
-              const isPM = timeStart.toLowerCase().includes('pm');
-              const isAM = timeStart.toLowerCase().includes('am');
-              
-              if (!isPM && !isAM) continue;
-              
-              const timeWithoutAMPM = timeStart.replace(/am|pm/i, '').trim();
-              const timeComponents = timeWithoutAMPM.split(':');
-              
-              let hour = parseInt(timeComponents[0]);
-              let minute = 0;
-              
-              if (timeComponents.length > 1) {
-                minute = parseInt(timeComponents[1]);
-              }
-              
-              if (isNaN(hour)) continue;
-              
-              // Convert to 24-hour format
-              if (isPM && hour < 12) hour += 12;
-              if (isAM && hour === 12) hour = 0;
-              
-              appointmentDateTime = new Date(appointmentYear, appointmentMonth - 1, appointmentDay, hour, minute);
-            }
-            
-            console.log("Appointment date/time parsed:", appointmentDateTime);
-            console.log("Current date:", currentDate);
-            console.log("Is future appointment:", appointmentDateTime > currentDate);
-  
-            // Check if appointment is in the future
-            if (appointmentDateTime > currentDate) {
-              // Keep valid appointments
-              appointmentsToKeep.push(appointment);
-              
-              // Add to upcoming appointments with patient info
-              try {
-                let patientName = "Unknown";
-                
-                if (appointment.patientId) {
-                  // Try to get patient information
-                  const patient = await Patient.findOne({ userId: appointment.patientId });
-                  if (patient && patient.personalInformation && patient.personalInformation.fullName) {
-                    patientName = patient.personalInformation.fullName;
-                  } else {
-                    // Fall back to User model if patient model doesn't have the name
-                    const user = await User.findById(appointment.patientId);
-                    if (user && user.name) {
-                      patientName = user.name;
-                    }
-                  }
-                }
-                
-                upcomingAppointments.push({
-                  appointmentId: appointment.appointmentId,
-                  patientId: appointment.patientId,
-                  date: appointment.date,
-                  time: appointment.time,
-                  patient: patientName
-                });
-              } catch (patientError) {
-                console.error('Error fetching patient details:', patientError);
-                // Still include the appointment but with unknown patient
-                upcomingAppointments.push({
-                  appointmentId: appointment.appointmentId,
-                  patientId: appointment.patientId,
-                  date: appointment.date,
-                  time: appointment.time,
-                  patient: "Unknown"
-                });
-              }
-            }
-          } catch (appointmentError) {
-            // Log error but continue processing other appointments
-            console.error('Error processing appointment:', appointmentError);
-            continue;
-          }
-        }
-      }
-  
-      // Update doctor document if any appointments were removed
-      if (doctor.appointments && appointmentsToKeep.length !== doctor.appointments.length) {
-        await Doctor.findByIdAndUpdate(doctor._id, { appointments: appointmentsToKeep });
-      }
-  
-      console.log("Final upcoming appointments:", upcomingAppointments);
-  
-      return res.status(200).json({
-        success: true,
-        count: upcomingAppointments.length,
-        data: upcomingAppointments
-      });
-      
-    } catch (error) {
-      console.error('Error in getUpcomingAppointments:', error instanceof Error ? error.message : 'Unknown error');
-      return res.status(500).json({
-        success: false,
-        message: 'Server error',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  };
-  
-  
-  // Helper function to convert month name to month number
-  function getMonthNumber(monthName: string): number {
-    const months: { [key: string]: number } = {
-      'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
-      'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12,
-      'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
-    };
     
-    return months[monthName.toLowerCase()] || 1; // Default to January if not found
-  }
+  
 
-export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus,setupClinic, setAvailableSlots, markSlotsAsBusy, getClinicDetails 
-    , updateDoctorPersonalDetails , getDoctorDetails , getDoctorProfessionalDetails
-}
+
+
+export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus, setAvailableSlots, markSlotsAsBusy,getClinicDetails, saveClinicDetails,getAvailability }
 
