@@ -221,7 +221,7 @@ const getAppointmentDetails = async (req: any, res: any) => {
             patientName: patient?.personalInformation?.fullName || 'Unknown Patient',
             date: appointment.date,
             time: appointment.time,
-            paymentStatus: appointment.PaymentStatus || 'pending'
+//            paymentStatus: appointment.PaymentStatus || 'pending'
         };
         
         res.status(200).json(appointmentDetails);
