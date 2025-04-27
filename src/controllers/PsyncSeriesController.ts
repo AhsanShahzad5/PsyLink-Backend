@@ -289,7 +289,7 @@ export const getUserSeriesWithPosts = async (req: Request, res: Response) => {
         path: "posts",
         select: "title description img createdAt updatedAt likes comments" // Select the fields you want from posts
       })
-      .populate("createdBy", "name email"); // Add user details if needed
+      .populate("createdBy", "name email profilePicture"); // Add user details if needed
 
     if (userSeries.length === 0) {
       return res.status(200).json({ message: "No series found for this user", series: [] });

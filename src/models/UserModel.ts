@@ -29,13 +29,17 @@ const userSchema = new Schema<any>({
     enum: ['Patient', 'Doctor', 'Admin','patient', 'doctor', 'admin'],
     required: true,
   },
-
+    
+  profilePicture: {
+    type: String,
+    default: ""  // Empty string as default
+  },
   
   profileCompleted: {
     type: Boolean,
     default: false
-  },
-
+  }
+,
   resetPasswordToken : String,
   resetPasswordExpire : Date,
 });
