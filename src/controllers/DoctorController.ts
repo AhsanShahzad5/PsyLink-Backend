@@ -15,6 +15,7 @@ const test = (req: Request, res: Response) => {
 const submitPersonalDetails = async (req: any, res: any) => {
     try {
         const { fullName, dateOfBirth, gender, country, city, phoneNo, image } = req.body;
+        console.log("request body personal details" ,req.body);
         const userId = req.user._id;
         if (req.user.role.toLowerCase() !== 'doctor') {
             return res.status(403).json({ message: 'Only doctors can submit personal details' });
@@ -26,7 +27,9 @@ const submitPersonalDetails = async (req: any, res: any) => {
         }
         doctor.personalDetails = { fullName, dateOfBirth, gender, country, city, phoneNo, image };
         doctor.status = 'pending';
+        doctor.clinic = { ...doctor.clinic, fullName, country , city, image }
         await doctor.save();
+        console.log('Doctor personal details saved:', doctor);
         await AdminNotification.create({
             type: 'doctor_verification',
             doctorId: doctor._id,
@@ -83,6 +86,7 @@ const getDoctorProfessionalDetails = async (req: any, res: any) => {
 
   const submitProfessionalDetails = async (req: any, res: any) => {
     const { specialisation, pmdcNumber, educationalBackground, licenseImage, cnicNumber, availableHours, consultationFee, bankDetails } = req.body;
+    console.log("request body professional details" ,req.body);
     const userId = req.user._id;
     if (req.user.role.toLowerCase() !== 'doctor') {
         return res.status(403).json({ message: 'Only doctors can submit personal details' });
@@ -95,6 +99,7 @@ const getDoctorProfessionalDetails = async (req: any, res: any) => {
     const fullName = doctor.personalDetails?.fullName || '';
     doctor.professionalDetails = { specialisation, pmdcNumber, educationalBackground, licenseImage, cnicNumber, availableHours, consultationFee, bankDetails };
     doctor.status = 'pending';
+    doctor.clinic = { ...doctor.clinic, specialisation, educationBackground: educationalBackground ,consultationFee, startTime: availableHours.startTime, endTime: availableHours.endTime }
     await doctor.save();
     await AdminNotification.create({
         type: 'doctor_verification',
