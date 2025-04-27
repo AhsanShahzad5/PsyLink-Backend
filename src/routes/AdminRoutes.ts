@@ -13,7 +13,8 @@ import {
   getAppointmentDetails,
   deletePatient,
   deleteDoctor,
-  getAllDoctors
+  getAllDoctors,
+  getAllSessions
 } from "../controllers/AdminController";
 
 const router = express.Router();
@@ -43,5 +44,7 @@ router.delete('/patients/:id', deletePatient);
 // Appointment management routes
 router.get('/appointments', getAllAppointments);
 router.get('/appointments/:id', getAppointmentDetails);
+
+router.get('/session', getAllSessions);
 
 export default router;
