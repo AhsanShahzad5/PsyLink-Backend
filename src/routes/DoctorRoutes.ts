@@ -1,5 +1,5 @@
 import express from "express";
-import { getDetailsForPrescription, getDoctorProfessionalDetails, getUpcomingAppointments, savePrescription } from "../controllers/DoctorController";
+import { deletePrivateReview, getDetailsForPrescription, getDoctorProfessionalDetails, getPrivateReviews, getReviews, getUpcomingAppointments, savePrescription } from "../controllers/DoctorController";
 
 import { checkVerificationStatus, getAvailability, getClinicDetails, markSlotsAsBusy, saveClinicDetails, setAvailableSlots, submitPersonalDetails, submitProfessionalDetails, test } from "../controllers/DoctorController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
@@ -26,6 +26,11 @@ router.get('/clinic-details', isAuthenticated, getClinicDetails);
 router.post('/clinic-details', isAuthenticated, saveClinicDetails);
 
 router.get('/availability', isAuthenticated, getAvailability);
+router.get('/reviews', isAuthenticated, getReviews);
+
+
+router.get('/private-reviews',isAuthenticated, getPrivateReviews);
+router.delete('/private-reviews/:reviewId', isAuthenticated, deletePrivateReview);
 
 
 // router.post('/clinic/update', isAuthenticated, updateClinicDetails);

@@ -629,8 +629,181 @@ export const getDetailsForPrescription = async (req: any, res: any) => {
     }
   };
   
+  export const getReviews = async (req: Request, res: Response) => {
+    try {
+      const doctorId = req.query.doctorId as string;
+      
+      // Validate doctorId
+      if (!doctorId) {
+        return res.status(400).json({ success: false, message: 'Doctor ID is required' });
+      }
   
+      // Pagination parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 5;
+      const skip = (page - 1) * limit;
+  
+      // Get total count for pagination
+      const total = await Appointment.countDocuments({
+        doctorId,
+        rating: { $ne: null }, // Only count appointments with ratings
+        status: 'completed' // Only completed appointments can have reviews
+      });
+  
+      // Count five-star ratings
+      const fiveStarCount = await Appointment.countDocuments({
+        doctorId,
+        rating: 5, // Only count 5-star ratings
+        status: 'completed'
+      });
+  
+      // Calculate average rating
+      const ratingStats = await Appointment.aggregate([
+        {
+          $match: {
+            doctorId: mongoose.Types.ObjectId.isValid(doctorId) 
+              ? new mongoose.Types.ObjectId(doctorId) 
+              : doctorId,
+            rating: { $ne: null },
+            status: 'completed'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: '$rating' }
+          }
+        }
+      ]);
+  
+      const averageRating = ratingStats.length > 0 ? ratingStats[0].averageRating : 0;
+  
+      // Find completed appointments with ratings for the specified doctor
+      const appointments = await Appointment.find({
+        doctorId,
+        rating: { $ne: null }, // Only include appointments that have ratings
+        status: 'completed' // Only completed appointments
+      })
+        .select('patientName rating review createdAt')
+        .sort({ createdAt: -1 }) // Sort by most recent first
+        .skip(skip)
+        .limit(limit);
+  
+      // Transform the data for the frontend
+      const reviews = appointments.map(appointment => ({
+        _id: appointment._id,
+        patientName: appointment.patientName,
+        rating: appointment.rating,
+        review: appointment.review,
+        date: appointment.createdAt
+      }));
+  
+      return res.status(200).json({
+        success: true,
+        total,
+        fiveStarCount,
+        averageRating,
+        page,
+        totalPages: Math.ceil(total / limit),
+        reviews
+      });
+    } catch (error) {
+      console.error('Error in getReviews:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Server error while fetching reviews'
+      });
+    }
+  };
  
+
+  export const getPrivateReviews = async (req: any, res: any)=> {
+    try {
+      const doctorId = req.user?._id;
+      console.log('this is doctorId :',doctorId)
+  
+      const doctor = await Doctor.findOne({ userId: doctorId });
+      
+      if (!doctor) {
+        return res.status(404).json({
+          success: false,
+          message: 'Doctor not found',
+        });
+      }
+  
+      // Return private reviews
+      return res.status(200).json({
+        success: true,
+        privateReviews: doctor.privateReviews.map(review => ({
+          _id: review._id,
+          patientId: review.patientId,
+          patientName: review.patientName,
+          privateReview: review.privateReview
+        }))
+      });
+    } catch (error) {
+      console.error('Error getting private reviews:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get private reviews',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
+  
+  // Delete a private review
+  export const deletePrivateReview = async (req: any, res: any): Promise<Response> => {
+    try {
+      const doctorId = req.user._id;
+      const { reviewId } = req.params;
+  
+      if (!reviewId || !mongoose.Types.ObjectId.isValid(reviewId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valid review ID is required',
+        });
+      }
+  
+      const doctor = await Doctor.findOne({ userId: doctorId });
+      
+      if (!doctor) {
+        return res.status(404).json({
+          success: false,
+          message: 'Doctor not found',
+        });
+      }
+  
+      // Find the index of the review to delete
+      const reviewIndex = doctor.privateReviews.findIndex(
+        (review) => review._id.toString() === reviewId
+      );
+  
+      if (reviewIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: 'Review not found',
+        });
+      }
+  
+      // Remove the review from the array
+      doctor.privateReviews.splice(reviewIndex, 1);
+      
+      // Save the updated doctor document
+      await doctor.save();
+  
+      return res.status(200).json({
+        success: true,
+        message: 'Private review deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting private review:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete private review',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
 
 
 export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus, getDoctorProfessionalDetails, setAvailableSlots, markSlotsAsBusy,getClinicDetails, saveClinicDetails,getAvailability }

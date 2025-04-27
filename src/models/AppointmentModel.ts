@@ -37,6 +37,14 @@ const AppointmentSchema = new Schema({
     enum: ['booked', 'cancelled', 'completed'],
     default: 'booked'
   },
+  rating: {
+    type: Number,
+    required: false
+  },
+  review: {
+    type: String,
+    required: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
