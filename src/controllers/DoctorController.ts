@@ -31,7 +31,7 @@ const submitPersonalDetails = async (req: any, res: any) => {
         });
 
       // Update profileCompleted status on User model
-      await User.findByIdAndUpdate(userId, { profileCompleted: true });
+      await User.findByIdAndUpdate(userId, { profileCompleted: true , profilePicture: image});
     
       // Return user data with updated profileCompleted status
       const updatedUser = await User.findById(userId).select('-password');
@@ -298,7 +298,7 @@ const updateDoctorPersonalDetails = async (req: any, res: any) => {
       await doctor.save();
 
        // Update profileCompleted status on User model
-       await User.findByIdAndUpdate(userId, { profileCompleted: true });
+       await User.findByIdAndUpdate(userId, { profileCompleted: true , profilePicture: image});
     
        // Return user data with updated profileCompleted status
        const updatedUser = await User.findById(userId).select('-password');
