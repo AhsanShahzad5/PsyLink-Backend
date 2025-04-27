@@ -86,6 +86,7 @@ const loginUser = catchAsyncErrors(async (req: Request, res: Response, next:Next
         name: user.name,
         email: user.email,
         role: user.role,
+        profileCompleted: user.profileCompleted,        
         token,
       });
     

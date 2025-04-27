@@ -124,53 +124,6 @@ const bookAppointment = async (req:any, res:any) => {
 };
 
 
-// const bookAppointment = async (req:any, res:any) => {
-//   try {
-//     const { doctorId, date, time } = req.body;
-//     const userId = req.user._id;
-    
-//     if (req.user.role.toLowerCase() !== 'patient') {
-//       return res.status(403).json({ message: 'Only patient can book appointment' });
-//     }
-    
-//     const doctor = await Doctor.findOne({_id: doctorId});
-//     if (!doctor) {
-//       return res.status(404).json({ message: 'Doctor not found' });
-//     }
-    
-//     // Other validation logic...
-    
-//     // Generate appointment ID
-//     const appointmentId = uuidv4();
-//     //console.log("This is appointmentId", appointmentId);
-    
-//     // Check and fix existing appointments that may be missing appointmentId
-//     doctor.appointments.forEach((appointment, index) => {
-//       if (!appointment.appointmentId) {
-//         doctor.appointments[index].appointmentId = uuidv4();
-//       }
-//     });
-    
-//     // Add the new appointment
-//     doctor.appointments.push({ 
-//       appointmentId, 
-//       patientId: userId, 
-//       date, 
-//       time 
-//     });
-    
-//     // Save doctor after fixing appointments
-//     await doctor.save();
-    
-//     // Rest of your code for patient, etc.
-    
-//     res.status(200).json({ message: 'Appointment booked successfully' });
-//   } catch (error) {
-//     console.error('Error in bookAppointment:', error);
-//     res.status(500).json({ message: 'An error occurred while booking the appointment' });
-//   }
-// };
-
 const getBookedAppointments = async (req: any, res: any) => {
   try {
     const userId = req.user._id;
@@ -539,30 +492,67 @@ function getDaysBetweenDates(startDate: string | Date, endDate: string | Date): 
 }
 
 
+// const submitPatientPersonalDetails = async (req: any, res: any) => {
+//   try {
+//       const { fullName, age, gender, disability, country, city, phoneNo, image } = req.body;
+//       const userId = req.user._id;
+      
+//       if (req.user.role.toLowerCase() !== 'patient') {
+//           return res.status(403).json({ message: 'Only patients can submit personal details' });
+//       }
+      
+//       let patient = await Patient.findOne({ userId });
+//       if (!patient) {
+//           const userEmail = req.user.email;
+//           patient = new Patient({ userId, email: userEmail });
+//       }
+      
+//       patient.personalInformation = { fullName, age, gender, disability, country, city, phoneNo, image };
+//       await patient.save();
+      
+//       res.status(200).json({ message: 'Personal details submitted successfully' });
+//   } catch (error) {
+//       console.error('Error in submitPersonalDetails:', error);
+//       res.status(500).json({ message: 'An error occurred while submitting personal details' });
+//   }
+// };
+
+
 const submitPatientPersonalDetails = async (req: any, res: any) => {
   try {
-      const { fullName, age, gender, disability, country, city, phoneNo, image } = req.body;
-      const userId = req.user._id;
-      
-      if (req.user.role.toLowerCase() !== 'patient') {
-          return res.status(403).json({ message: 'Only patients can submit personal details' });
-      }
-      
-      let patient = await Patient.findOne({ userId });
-      if (!patient) {
-          const userEmail = req.user.email;
-          patient = new Patient({ userId, email: userEmail });
-      }
-      
-      patient.personalInformation = { fullName, age, gender, disability, country, city, phoneNo, image };
-      await patient.save();
-      
-      res.status(200).json({ message: 'Personal details submitted successfully' });
+    const { fullName, age, gender, disability, country, city, phoneNo, image } = req.body;
+    const userId = req.user._id;
+    
+    if (req.user.role.toLowerCase() !== 'patient') {
+      return res.status(403).json({ message: 'Only patients can submit personal details' });
+    }
+    
+    // Create or update Patient record
+    let patient = await Patient.findOne({ userId });
+    if (!patient) {
+      const userEmail = req.user.email;
+      patient = new Patient({ userId, email: userEmail });
+    }
+    
+    patient.personalInformation = { fullName, age, gender, disability, country, city, phoneNo, image };
+    await patient.save();
+    
+    // Update profileCompleted status on User model
+    await User.findByIdAndUpdate(userId, { profileCompleted: true });
+    
+    // Return user data with updated profileCompleted status
+    const updatedUser = await User.findById(userId).select('-password');
+    
+    res.status(200).json({ 
+      message: 'Personal details submitted successfully',
+      user: updatedUser
+    });
   } catch (error) {
-      console.error('Error in submitPersonalDetails:', error);
-      res.status(500).json({ message: 'An error occurred while submitting personal details' });
+    console.error('Error in submitPersonalDetails:', error);
+    res.status(500).json({ message: 'An error occurred while submitting personal details' });
   }
 };
+
 
 const updatePatientPersonalDetails = async (req: any, res: any) => {
   try {
@@ -592,8 +582,17 @@ const updatePatientPersonalDetails = async (req: any, res: any) => {
       };
       
       await patient.save();
-      
-      res.status(200).json({ message: 'Personal details updated successfully' });
+
+
+      // Update profileCompleted status on User model
+    await User.findByIdAndUpdate(userId, { profileCompleted: true });
+    
+    // Return user data with updated profileCompleted status
+    const updatedUser = await User.findById(userId).select('-password');
+        
+    res.status(200).json({ message: 'Personal details updated successfully',
+        user: updatedUser
+       });
   } catch (error) {
       console.error('Error in updatePatientPersonalDetails:', error);
       res.status(500).json({ message: 'An error occurred while updating personal details' });
@@ -652,9 +651,207 @@ export const getPatientPrescriptions = async (req: Request, res: Response): Prom
       success: false,
       message: 'Failed to fetch patient prescriptions',
       error: error instanceof Error ? error.message : 'Unknown error'
+
+    })}}
+
+const moodLogging = async (req: any, res: any) => {
+  try {
+    const userId = req.user._id;
+    const {mood } = req.body;
+
+    // Validate request body
+    if (!userId || !mood) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide userId and mood'
+      });
+    }
+
+    // Find the patient by userId
+   // const Patient = mongoose.model('Patient');
+    const patient = await Patient.findOne({ userId });
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Patient not found'
+      });
+    }
+
+    // Check if the patient has logged a mood today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to beginning of the day
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1); // Set to beginning of the next day
+
+    // Check if a mood has been logged in the last 24 hours
+    const recentMoodEntry = patient.dailyMood.find((entry) => {
+      const entryDate = new Date(entry.date);
+      return entryDate >= today && entryDate < tomorrow;
+    });
+
+    if (recentMoodEntry) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mood has already been logged today. You can log again after 24 hours.'
+      });
+    }
+
+    // Add new mood entry
+    patient.dailyMood.push({
+      date: new Date(),
+      mood
+    });
+
+    // Save updated patient record
+    await patient.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Mood logged successfully',
+      data: {
+        date: new Date(),
+        mood
+      }
+    });
+  } catch (error) {
+    console.error('Error in mood logging:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: (error as any).message
+    });
+  }
+};
+
+// Get today's mood for the logged-in user
+const getTodayMood = async (req: any, res: any) => {
+  try {
+    const userId = req.user._id;
+
+    // Find the patient by userId
+    const patient = await Patient.findOne({ userId });
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Patient not found'
+      });
+    }
+
+    // Get today's date (beginning of the day)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Find mood entry for today
+    const todayMood = patient.dailyMood.find((entry) => {
+      const entryDate = new Date(entry.date);
+      return entryDate >= today && entryDate < tomorrow;
+    });
+
+    if (!todayMood) {
+      return res.status(200).json({
+        success: true,
+        message: 'No mood has been logged today',
+        data: null
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Today\'s mood retrieved successfully',
+      data: todayMood
+    });
+  } catch (error) {
+    console.error('Error getting today\'s mood:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: (error as any).message
+    });
+  }
+};
+
+// Get moods for the last 15 days
+const getMoodsForLast15Days = async (req: any, res: any) => {
+  try {
+    const userId = req.user._id;
+
+    // Find the patient by userId
+    const patient = await Patient.findOne({ userId });
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Patient not found'
+      });
+    }
+
+    // Calculate date range for the last 15 days
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999); // End of today
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 14); // 15 days ago (including today)
+    startDate.setHours(0, 0, 0, 0); // Beginning of that day
+
+    // Filter mood entries for the last 15 days and sort by date
+    const moodEntries = patient.dailyMood
+      .filter((entry) => {
+        const entryDate = new Date(entry.date);
+        return entryDate >= startDate && entryDate <= endDate;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Generate all dates in the range
+    const dateRange = [];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+      dateRange.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Map the mood entries to the date range
+    const moodHistory = dateRange.map(date => {
+      const dateString = date.toISOString().split('T')[0];
+      
+      const matchingEntry = moodEntries.find(entry => 
+        new Date(entry.date).toISOString().split('T')[0] === dateString
+      );
+      
+      return {
+        date: dateString,
+        mood: matchingEntry ? matchingEntry.mood : null
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Mood history for the last 15 days retrieved successfully',
+      data: {
+        moodHistory,
+        summary: {
+          totalDays: 15,
+          daysWithMoodLogged: moodEntries.length
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error getting mood history:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: (error as any).message
     });
   }
 };
 
 
-export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments, submitPatientPersonalDetails , getPatientDetails , updatePatientPersonalDetails}
+
+
+export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments, submitPatientPersonalDetails , getPatientDetails , updatePatientPersonalDetails , moodLogging , getTodayMood, getMoodsForLast15Days}

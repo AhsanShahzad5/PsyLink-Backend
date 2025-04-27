@@ -30,6 +30,12 @@ const userSchema = new Schema<any>({
     required: true,
   },
 
+  
+  profileCompleted: {
+    type: Boolean,
+    default: false
+  },
+
   resetPasswordToken : String,
   resetPasswordExpire : Date,
 });

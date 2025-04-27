@@ -159,6 +159,7 @@ const GetPostById = async (req: Request, res: Response) => {
                     _id: user._id,
                     name: user.name,
                     email: user.email,
+                    role : user.role,
                 }
               : null, // If user is not found, set it as null
       };
