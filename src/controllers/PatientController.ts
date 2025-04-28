@@ -19,17 +19,17 @@ const test = (req: Request, res: Response) => {
 
 const getVerifiedDoctors = async (req: any, res: any) => {
   try {
-    const verifiedDoctors = await Doctor.find({ status: 'verified' })
-      .select('clinic availability')
-      .lean();
-    const filteredDoctors = verifiedDoctors.map(doctor => ({
-      ...doctor,
-      availability: doctor.availability.map(day => ({
-        ...day,
-        slots: day.slots.filter(slot => slot.status === 'available')
-      })).filter(day => day.slots.length > 0)
-    }));
-    res.status(200).json(filteredDoctors);
+      const verifiedDoctors = await Doctor.find({ status: 'verified' })
+          .select('clinic availability userId')
+          .lean();
+      const filteredDoctors = verifiedDoctors.map(doctor => ({
+          ...doctor,
+          availability: doctor.availability.map(day => ({
+              ...day,
+              slots: day.slots.filter(slot => slot.status === 'available')
+          })).filter(day => day.slots.length > 0)
+      }));
+      res.status(200).json(filteredDoctors);
   } catch (error) {
     res.status(500).json("ERROR");
   }
@@ -40,90 +40,154 @@ const bookAppointment = async (req: any, res: any) => {
     const { doctorId, date, time } = req.body;
     const userId = req.user._id;
 
-    // Check if user is a patient
-    if (req.user.role.toLowerCase() !== 'patient') {
-      return res.status(403).json({ message: 'Only patient can book appointment' });
+        // Check if user is a patient
+        if (req.user.role.toLowerCase() !== 'patient') {
+            return res.status(403).json({ message: 'Only patient can book appointment' });
+        }
+        
+         // Find doctor
+        const doctor = await Doctor.findOne({_id: doctorId});
+
+        if (!doctor) {
+            return res.status(404).json({ message: 'Doctor not found' });
+        }
+
+        //check availability of doc
+        const availability = doctor.availability.find(avail => avail.date === date);
+        if (!availability) {
+            return res.status(404).json({ message: 'No availability found for the given date' });
+        }
+
+        //check slot availability
+        const slot = availability.slots.find(slot => slot.time === time);
+        if (!slot || slot.status !== 'available') {
+            return res.status(400).json({ message: 'Slot is either not available or already taken' });
+        }
+
+        //mark as booked
+        slot.status = 'booked';
+        slot.bookedBy = userId;
+
+
+        //find kreyga patient vrna create usi waqt
+        let patient = await Patient.findOne({ userId });
+        if (!patient) {
+            const userEmail = req.user.email; 
+           patient = new Patient({ userId, email: userEmail });
+        }
+
+        // get doc and patient names
+        const user = await User.findById(userId);
+        const patientName = patient.personalInformation?.fullName || user.name || user.email;
+        
+        const doctorUser = await User.findById(doctor.userId);
+        const doctorName = doctor.personalDetails?.fullName || doctorUser.name || doctorUser.email;
+
+        //create the appointmentId
+        const appointmentId = uuidv4();
+
+        //added console log
+        console.log("This is appointmentId", appointmentId);
+
+        //creates new appointment and saves in db
+        const appointment = new Appointment({
+          appointmentId,
+          date,
+          time,
+          patientId: userId,
+          patientName,
+          doctorId: doctor.userId,
+          //doctorId: doctorId,
+          doctorName,
+          status: 'booked',
+      });
+      
+      await appointment.save();
+
+
+         //update docs appointment list
+         doctor.appointments.push({ appointmentId ,patientId: userId, date, time });
+         await doctor.save();
+
+        // Add to patient's upcoming appointments
+        patient?.appointments?.upcoming.push({
+            appointmentId,
+            doctorId,
+            date,
+            time,
+            status: 'booked',
+        });
+        await patient.save();
+
+        res.status(200).json({ message: 'Appointment booked successfully' });
+    } catch (error) {
+        console.error('Error in bookAppointment:', error);
+        res.status(500).json({ message: 'An error occurred while booking the appointment' });
     }
 
-    // Find doctor
-    const doctor = await Doctor.findOne({ _id: doctorId });
-    if (!doctor) {
-      return res.status(404).json({ message: 'Doctor not found' });
-    }
-
-    //check availability of doc
-    const availability = doctor.availability.find(avail => avail.date === date);
-    if (!availability) {
-      return res.status(404).json({ message: 'No availability found for the given date' });
-    }
-
-    //check slot availability
-    const slot = availability.slots.find(slot => slot.time === time);
-    if (!slot || slot.status !== 'available') {
-      return res.status(400).json({ message: 'Slot is either not available or already taken' });
-    }
-
-    //mark as booked
-    slot.status = 'booked';
-    slot.bookedBy = userId;
-
-
-    //find kreyga patient vrna create usi waqt
-    let patient = await Patient.findOne({ userId });
-    if (!patient) {
-      const userEmail = req.user.email;
-      patient = new Patient({ userId, email: userEmail });
-    }
-
-    // get doc and patient names
-    const user = await User.findById(userId);
-    const patientName = patient.personalInformation?.fullName || user.name || user.email;
-
-    const doctorUser = await User.findById(doctor.userId);
-    const doctorName = doctor.personalDetails?.fullName || doctorUser.name || doctorUser.email;
-
-    //create the appointmentId
-    const appointmentId = uuidv4();
-
-    //added console log
-    console.log("This is appointmentId", appointmentId);
-
-    //creates new appointment and saves in db
-    const appointment = new Appointment({
-      appointmentId,
-      date,
-      time,
-      patientId: userId,
-      patientName,
-      doctorId: doctor.userId,
-      doctorName,
-      status: 'booked',
-    });
-
-    await appointment.save();
-
-
-    //update docs appointment list
-    doctor.appointments.push({ appointmentId, patientId: userId, date, time });
-    await doctor.save();
-
-    // Add to patient's upcoming appointments
-    patient?.appointments?.upcoming.push({
-      appointmentId,
-      doctorId,
-      date,
-      time,
-      status: 'booked',
-    });
-    await patient.save();
-
-    res.status(200).json({ message: 'Appointment booked successfully' });
-  } catch (error) {
-    console.error('Error in bookAppointment:', error);
-    res.status(500).json({ message: 'An error occurred while booking the appointment' });
+  
   }
-};
 
+// abbadv old
+// const getBookedAppointments = async (req: any, res: any) => {
+//   try {
+//     const userId = req.user._id;
+//     const patient = await Patient.findOne({ userId }).lean();
+//     if (!patient) {
+//       return res.status(404).json({ message: "Patient not found." });
+//     }
+
+//     if (!patient.appointments?.upcoming || patient.appointments.upcoming.length === 0) {
+//       return res.status(200).json([]);
+//     }
+//     const doctorIds = patient.appointments.upcoming.map((appt: any) => appt.doctorId);
+//     const doctors = await Doctor.find({ _id: { $in: doctorIds } }).lean();
+//     const doctorMap = doctors.reduce((acc: any, doctor: any) => {
+//       acc[doctor._id.toString()] = doctor;
+//       return acc;
+//     }, {});
+//     const bookedAppointments = patient.appointments.upcoming.map((appointment: any) => {
+//       const doctor = doctorMap[appointment.doctorId.toString()];
+//       if (!doctor) return null;
+//       try {
+//         const [startTime] = appointment.time.split("-").map((t:any) => t.trim());
+//         const formattedTime = convertTo24HourFormat(startTime);
+//         const appointmentDate = new Date(`${appointment.date}T${formattedTime}:00`);
+//         console.log("Parsed Date:", appointmentDate);
+//         const currentDate = new Date();
+//         let status = appointmentDate <= currentDate ? "active" : "upcoming";
+
+//         if (status === "active") {
+//           const timeDiff = currentDate.getTime() - appointmentDate.getTime();
+//           if (timeDiff > 1000 * 60 * 60) {
+//             status = "history";
+//           }
+//         }
+//         const joinIn = status === "upcoming" ? getTimeRemaining(appointmentDate) : null;
+//         return {
+//           id: appointment._id,
+//           appointmentId:appointment.appointmentId,
+//           doctorName: doctor.personalDetails?.fullName || "Unknown Doctor",
+//           specialization: doctor.professionalDetails?.specialisation || "General Practitioner",
+//           bookedTimeSlot: appointment.time,
+//           date: appointment.date,
+//           duration: "60 minutes",
+//           imageUrl: doctor.personalDetails?.imageUrl || "/default-doctor.png",
+//           status,
+//           joinIn,
+//           meetingLink: appointment.meetingLink || null,
+//         };
+//       } catch (error) {
+//         console.error("Error parsing appointment date:", error);
+//         return null;
+//       }
+//     }).filter(Boolean);
+//     res.status(200).json(bookedAppointments);
+//   } catch (error) {
+//     console.error("Error fetching booked appointments:", error);
+//     res.status(500).json({ message: "An error occurred while fetching appointments." });
+//   }
+// };
 
 const getBookedAppointments = async (req: any, res: any) => {
   try {
@@ -136,15 +200,28 @@ const getBookedAppointments = async (req: any, res: any) => {
     if (!patient.appointments?.upcoming || patient.appointments.upcoming.length === 0) {
       return res.status(200).json([]);
     }
-    const doctorIds = patient.appointments.upcoming.map((appt: any) => appt.doctorId);
-    const doctors = await Doctor.find({ _id: { $in: doctorIds } }).lean();
+
+    // Extract doctorIds from appointments and find the corresponding doctors
+    const doctorUserIds = patient.appointments.upcoming.map((appt: any) => appt.doctorId);
+    
+    // Find doctors by their userIds instead of _id
+    //     const doctors = await Doctor.find({ _id: { $in: doctorIds } }).lean();
+    const doctors = await Doctor.find({ userId: { $in: doctorUserIds } }).lean();
+    
+    // Create a lookup map using userId instead of _id
     const doctorMap = doctors.reduce((acc: any, doctor: any) => {
-      acc[doctor._id.toString()] = doctor;
+      acc[doctor.userId.toString()] = doctor;
       return acc;
     }, {});
+
     const bookedAppointments = patient.appointments.upcoming.map((appointment: any) => {
+      // Look up using the doctorId which is the userId in the User model
       const doctor = doctorMap[appointment.doctorId.toString()];
-      if (!doctor) return null;
+      if (!doctor) {
+        console.log(`Doctor not found for doctorId: ${appointment.doctorId}`);
+        return null;
+      }
+      
       try {
         const [startTime] = appointment.time.split("-").map((t: any) => t.trim());
         const formattedTime = convertTo24HourFormat(startTime);
@@ -178,6 +255,7 @@ const getBookedAppointments = async (req: any, res: any) => {
         return null;
       }
     }).filter(Boolean);
+    
     res.status(200).json(bookedAppointments);
   } catch (error) {
     console.error("Error fetching booked appointments:", error);
