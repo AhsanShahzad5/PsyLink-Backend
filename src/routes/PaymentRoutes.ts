@@ -4,13 +4,17 @@ import express from 'express';
 import { 
   createPaymentIntent, 
   confirmPayment,
-  getPaymentsByDoctor,
   getPaymentsByPatient,
+  // getPaymentDetails,
+  getPaymentsForDoctor,
+  getAllPayments,
   getPaymentDetails
 } from '../controllers/PaymentController';
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
+
+router.get('/getAllPayments' , getAllPayments)
 
 // Create a payment intent (for patient)
 router.post('/patient/create-payment-intent', isAuthenticated ,  createPaymentIntent);
@@ -19,13 +23,13 @@ router.post('/patient/create-payment-intent', isAuthenticated ,  createPaymentIn
 router.post('/patient/confirm-payment', isAuthenticated, confirmPayment);
 
 // Get doctor's payments
-router.get('/doctor/:doctorId', isAuthenticated  ,getPaymentsByDoctor);
+router.get('/doctor', isAuthenticated  ,getPaymentsForDoctor);
 
 // Get patient's payments
 router.get('/patient/:patientId', isAuthenticated , getPaymentsByPatient);
 
 // Get detailed payment info
-router.get('/details/:paymentId', isAuthenticated , getPaymentDetails);
+ router.get('/:paymentId', isAuthenticated , getPaymentDetails);
 
 
 

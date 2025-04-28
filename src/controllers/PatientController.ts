@@ -19,7 +19,7 @@ const test = (req: Request, res: Response) => {
 const getVerifiedDoctors = async (req: any, res: any) => {
   try {
       const verifiedDoctors = await Doctor.find({ status: 'verified' })
-          .select('clinic availability')
+          .select('clinic availability userId')
           .lean();
       const filteredDoctors = verifiedDoctors.map(doctor => ({
           ...doctor,
@@ -46,6 +46,7 @@ const bookAppointment = async (req:any, res:any) => {
         
          // Find doctor
         const doctor = await Doctor.findOne({_id: doctorId});
+
         if (!doctor) {
             return res.status(404).json({ message: 'Doctor not found' });
         }
@@ -95,6 +96,7 @@ const bookAppointment = async (req:any, res:any) => {
           patientId: userId,
           patientName,
           doctorId: doctor.userId,
+          //doctorId: doctorId,
           doctorName,
           status: 'booked',
       });
@@ -123,6 +125,66 @@ const bookAppointment = async (req:any, res:any) => {
     }
 };
 
+// abbadv old
+// const getBookedAppointments = async (req: any, res: any) => {
+//   try {
+//     const userId = req.user._id;
+//     const patient = await Patient.findOne({ userId }).lean();
+//     if (!patient) {
+//       return res.status(404).json({ message: "Patient not found." });
+//     }
+
+//     if (!patient.appointments?.upcoming || patient.appointments.upcoming.length === 0) {
+//       return res.status(200).json([]);
+//     }
+//     const doctorIds = patient.appointments.upcoming.map((appt: any) => appt.doctorId);
+//     const doctors = await Doctor.find({ _id: { $in: doctorIds } }).lean();
+//     const doctorMap = doctors.reduce((acc: any, doctor: any) => {
+//       acc[doctor._id.toString()] = doctor;
+//       return acc;
+//     }, {});
+//     const bookedAppointments = patient.appointments.upcoming.map((appointment: any) => {
+//       const doctor = doctorMap[appointment.doctorId.toString()];
+//       if (!doctor) return null;
+//       try {
+//         const [startTime] = appointment.time.split("-").map((t:any) => t.trim());
+//         const formattedTime = convertTo24HourFormat(startTime);
+//         const appointmentDate = new Date(`${appointment.date}T${formattedTime}:00`);
+//         console.log("Parsed Date:", appointmentDate);
+//         const currentDate = new Date();
+//         let status = appointmentDate <= currentDate ? "active" : "upcoming";
+
+//         if (status === "active") {
+//           const timeDiff = currentDate.getTime() - appointmentDate.getTime();
+//           if (timeDiff > 1000 * 60 * 60) {
+//             status = "history";
+//           }
+//         }
+//         const joinIn = status === "upcoming" ? getTimeRemaining(appointmentDate) : null;
+//         return {
+//           id: appointment._id,
+//           appointmentId:appointment.appointmentId,
+//           doctorName: doctor.personalDetails?.fullName || "Unknown Doctor",
+//           specialization: doctor.professionalDetails?.specialisation || "General Practitioner",
+//           bookedTimeSlot: appointment.time,
+//           date: appointment.date,
+//           duration: "60 minutes",
+//           imageUrl: doctor.personalDetails?.imageUrl || "/default-doctor.png",
+//           status,
+//           joinIn,
+//           meetingLink: appointment.meetingLink || null,
+//         };
+//       } catch (error) {
+//         console.error("Error parsing appointment date:", error);
+//         return null;
+//       }
+//     }).filter(Boolean);
+//     res.status(200).json(bookedAppointments);
+//   } catch (error) {
+//     console.error("Error fetching booked appointments:", error);
+//     res.status(500).json({ message: "An error occurred while fetching appointments." });
+//   }
+// };
 
 const getBookedAppointments = async (req: any, res: any) => {
   try {
@@ -135,15 +197,28 @@ const getBookedAppointments = async (req: any, res: any) => {
     if (!patient.appointments?.upcoming || patient.appointments.upcoming.length === 0) {
       return res.status(200).json([]);
     }
-    const doctorIds = patient.appointments.upcoming.map((appt: any) => appt.doctorId);
-    const doctors = await Doctor.find({ _id: { $in: doctorIds } }).lean();
+
+    // Extract doctorIds from appointments and find the corresponding doctors
+    const doctorUserIds = patient.appointments.upcoming.map((appt: any) => appt.doctorId);
+    
+    // Find doctors by their userIds instead of _id
+    //     const doctors = await Doctor.find({ _id: { $in: doctorIds } }).lean();
+    const doctors = await Doctor.find({ userId: { $in: doctorUserIds } }).lean();
+    
+    // Create a lookup map using userId instead of _id
     const doctorMap = doctors.reduce((acc: any, doctor: any) => {
-      acc[doctor._id.toString()] = doctor;
+      acc[doctor.userId.toString()] = doctor;
       return acc;
     }, {});
+
     const bookedAppointments = patient.appointments.upcoming.map((appointment: any) => {
+      // Look up using the doctorId which is the userId in the User model
       const doctor = doctorMap[appointment.doctorId.toString()];
-      if (!doctor) return null;
+      if (!doctor) {
+        console.log(`Doctor not found for doctorId: ${appointment.doctorId}`);
+        return null;
+      }
+      
       try {
         const [startTime] = appointment.time.split("-").map((t:any) => t.trim());
         const formattedTime = convertTo24HourFormat(startTime);
@@ -161,7 +236,7 @@ const getBookedAppointments = async (req: any, res: any) => {
         const joinIn = status === "upcoming" ? getTimeRemaining(appointmentDate) : null;
         return {
           id: appointment._id,
-          appointmentId:appointment.appointmentId,
+          appointmentId: appointment.appointmentId,
           doctorName: doctor.personalDetails?.fullName || "Unknown Doctor",
           specialization: doctor.professionalDetails?.specialisation || "General Practitioner",
           bookedTimeSlot: appointment.time,
@@ -177,6 +252,7 @@ const getBookedAppointments = async (req: any, res: any) => {
         return null;
       }
     }).filter(Boolean);
+    
     res.status(200).json(bookedAppointments);
   } catch (error) {
     console.error("Error fetching booked appointments:", error);
