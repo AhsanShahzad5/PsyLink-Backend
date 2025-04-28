@@ -62,6 +62,14 @@ const DoctorSchema = new Schema({
         endTime: { type: String, required: false },
     },
 
+    privateReviews: [
+        {
+            patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+            patientName: { type: String, required: true },
+            privateReview: { type: String, required: true }
+        }
+    ],
+
     availability: [
         {
             date: { type: String, required: false },

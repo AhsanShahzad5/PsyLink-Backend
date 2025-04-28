@@ -927,7 +927,57 @@ const getMoodsForLast15Days = async (req: any, res: any) => {
   }
 };
 
+export const saveReview = async (req: Request, res: Response) => {
+  try {
+    const { appointmentId, rating, review, privateReview } = req.body;
 
+    if (!appointmentId) {
+      return res.status(400).json({ message: 'Appointment ID is required' });
+    }
+
+    // Find the appointment
+    const appointment = await Appointment.findOne({ appointmentId });
+    
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    // Update the appointment with rating and review
+    appointment.rating = rating;
+    appointment.review = review;
+    await appointment.save();
+
+    // If there's a private review, add it to the doctor's privateReviews
+    if (privateReview && privateReview.trim() !== '') {
+      const doctor = await Doctor.findOne({ userId: appointment.doctorId });
+      
+      if (!doctor) {
+        return res.status(404).json({ message: 'Doctor not found' });
+      }
+
+      // Add private review to doctor
+      doctor.privateReviews = doctor.privateReviews || [];
+      doctor.privateReviews.push({
+        patientId: appointment.patientId,
+        patientName: appointment.patientName,
+        privateReview
+      });
+
+      await doctor.save();
+    }
+
+    // Update appointment status to completed if not already
+    if (appointment.status !== 'completed') {
+      appointment.status = 'completed';
+      await appointment.save();
+    }
+
+    return res.status(200).json({ message: 'Review saved successfully' });
+  } catch (error) {
+    console.error('Error saving review:', error);
+    return res.status(500).json({ message: 'Failed to save review' });
+  }
+};
 
 
 export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments, submitPatientPersonalDetails , getPatientDetails , updatePatientPersonalDetails , moodLogging , getTodayMood, getMoodsForLast15Days}
