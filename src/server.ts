@@ -16,6 +16,7 @@ import UserRoutes from './routes/UserRoutes';
 import { Server, Socket } from "socket.io";
 import PaymentRoutes from './routes/PaymentRoutes';
 import ComplaintRoutes from './routes/ComplaintRoute';
+import AppointmentRoutes from './routes/AppointmentRoute';
 
 const cookieParser = require("cookie-parser")
 
@@ -67,6 +68,7 @@ app.use('/api/psync', PsyncRoutes)
 app.use('/api/program',ProgramRoutes)
 app.use('/api/payments', PaymentRoutes)
 app.use('/api/complaints', ComplaintRoutes)
+app.use('/api/appointments',AppointmentRoutes)
 
 //error middleware
 app.use(errorMiddleware);

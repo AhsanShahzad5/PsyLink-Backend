@@ -406,51 +406,65 @@ export const applyProgram = async (req: any, res: any) => {
 export const getOngoingPrograms = async (req: any, res: any) => {
   try {
     const currentDate = new Date();
-
+    
     // Find the current user and their ongoing programs
     const userId = req.user._id;
-
+    
     const patient = await Patient.findOne({ userId });
     if (!patient) return res.status(404).send("Patient not found");
-
+    
     // Check programs with end dates in the past and move them to previous
+    const programsToMove: number[] = [];
+    
     patient.programs!.applied.forEach((program, index) => {
       const endDate = new Date(program.endDate);
+      console.log('this is currentDate :', currentDate)
+      console.log(`this is endDate for index ${index} : ${endDate} `, index, endDate)
       if (endDate < currentDate) {
+        console.log('end date is smaller. should be pushed into previous.')
+        programsToMove.push(index); // Store indices of programs to be moved
         patient.programs!.previous.push(program);
       }
     });
-
+    
+    // Remove moved programs from applied array (in reverse order to avoid index issues)
+    for (let i = programsToMove.length - 1; i >= 0; i--) {
+      patient.programs!.applied.splice(programsToMove[i], 1);
+    }
+    
+    // Save the patient document with the updated arrays
+    await patient.save();
+    
     // Filter for ongoing programs where current date falls within program dates
     const ongoingPrograms = patient.programs!.applied.filter(program => {
       const startDate = new Date(program.startDate);
       const endDate = new Date(program.endDate);
       return currentDate >= startDate && currentDate <= endDate;
     });
-
+    
     if (ongoingPrograms.length === 0) {
       return res.status(200).json({
         message: "No ongoing programs found",
         programs: []
       });
     }
-
+    
     // For each ongoing program, find today's tasks
     const programsWithTodaysTasks = ongoingPrograms.map(program => {
       // Convert dates to string format for comparison (YYYY-MM-DD)
       const todayDateString = currentDate.toISOString().split('T')[0];
-
+      
       // Find today's daily progress
       const todayProgress = program.dailyProgress.find(day => {
         const dayDateString = new Date(day.date).toISOString().split('T')[0];
         return dayDateString === todayDateString;
       });
-
+      
       // Calculate today's completed tasks instead of all days
       const tasksCompletedToday = todayProgress
         ? todayProgress.tasks.filter(task => task.completed).length
         : 0;
-
+      
       return {
         programId: program._id,
         planName: program.planName,
@@ -465,7 +479,7 @@ export const getOngoingPrograms = async (req: any, res: any) => {
         totalTasks: todayProgress ? todayProgress.tasks.length : 0
       };
     });
-
+    
     return res.status(200).json({
       programs: programsWithTodaysTasks
     });
@@ -477,9 +491,95 @@ export const getOngoingPrograms = async (req: any, res: any) => {
         error: error.message,
       });
     }
-    return res.status(500).json({ message: "Internal server error", error: "Unkown error" });
+    return res.status(500).json({ message: "Internal server error", error: "Unknown error" });
   }
 }
+
+
+export const getPreviousPrograms = async (req: any, res: any) => {
+  try {
+    // Get the current user ID from the authenticated request
+    const userId = req.user?._id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        message: "User not authenticated"
+      });
+    }
+    
+    // Find the patient with the given userId
+    const patient = await Patient.findOne({ userId });
+    
+    if (!patient) {
+      return res.status(404).json({
+        message: "Patient not found"
+      });
+    }
+    
+    // Check if there are any previous programs
+    if (!patient.programs || !patient.programs.previous || patient.programs.previous.length === 0) {
+      return res.status(200).json({
+        message: "No previous programs found",
+        programs: []
+      });
+    }
+    
+    // Map the previous programs to a more readable format
+    const formattedPreviousPrograms = patient.programs.previous.map(program => {
+      // Calculate overall task completion statistics
+      let totalTasks = 0;
+      let completedTasks = 0;
+      
+      program.dailyProgress.forEach(day => {
+        totalTasks += day.tasks.length;
+        completedTasks += day.tasks.filter(task => task.completed).length;
+      });
+      
+      // Calculate completion percentage
+      const completionPercentage = totalTasks > 0 
+        ? Math.round((completedTasks / totalTasks) * 100)
+        : 0;
+      
+      return {
+        programId: program._id,
+        planName: program.planName,
+        startDate: program.startDate,
+        endDate: program.endDate,
+        statistics: {
+          totalDays: program.dailyProgress.length,
+          totalTasks,
+          completedTasks,
+          completionPercentage
+        },
+        dailyProgress:program.dailyProgress
+        // You can add more fields here if needed
+      };
+    });
+    
+    // Sort programs by end date (most recent first)
+    formattedPreviousPrograms.sort((a, b) => 
+      new Date(b.endDate).getTime() - new Date(a.endDate).getTime()
+    );
+    
+    return res.status(200).json({
+      message: "Previous programs retrieved successfully",
+      count: formattedPreviousPrograms.length,
+      programs: formattedPreviousPrograms
+    });
+  } catch (error) {
+    console.error("Error fetching previous programs:", error);
+    if (error instanceof Error) {
+      return res.status(500).json({
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
+    return res.status(500).json({ 
+      message: "Internal server error", 
+      error: "Unknown error" 
+    });
+  }
+};
 
 export const markTaskComplete = async (req: any, res: any) => {
   try {

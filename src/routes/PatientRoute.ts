@@ -1,6 +1,6 @@
 import express from "express";
 import { submitPersonalDetails, test } from "../controllers/DoctorController";
-import {moodLogging, addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete, getTodayMood, getMoodsForLast15Days, getPatientPrescriptions, saveReview } from "../controllers/PatientController";
+import {moodLogging, addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete, getTodayMood, getMoodsForLast15Days, getPatientPrescriptions, saveReview, getPreviousPrograms } from "../controllers/PatientController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
@@ -22,7 +22,7 @@ router.post('/programs/applyProgram',isAuthenticated, applyProgram);
 router.get('/getOngoingPrograms',isAuthenticated, getOngoingPrograms);
 router.post('/markTaskComplete',isAuthenticated, markTaskComplete);
 router.get('/prescription/:patientId',getPatientPrescriptions)
-
+router.get('/programs/previous',isAuthenticated,getPreviousPrograms)
 router.post('/moodLogging',isAuthenticated, moodLogging);
 router.get('/getTodayMood',isAuthenticated, getTodayMood);
 router.get('/getMoodHistory',isAuthenticated, getMoodsForLast15Days);
