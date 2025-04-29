@@ -716,6 +716,65 @@ export const getDetailsForPrescription = async (req: any, res: any) => {
     }
   };
  
+  export const getReviewsForChart = async (req: any, res: any) => {
+    try {
+      // Get the doctor ID from the authenticated user
+      const doctorId = req.user?._id;
+      
+      if (!doctorId) {
+        return res.status(400).json({ success: false, message: 'Doctor ID is required' });
+      }
+  
+      // Count total reviews
+      const total = await Appointment.countDocuments({
+        doctorId,
+        rating: { $ne: null }, // Only count appointments with ratings
+        status: 'completed' // Only completed appointments can have reviews
+      });
+  
+      // Count five-star ratings
+      const fiveStarCount = await Appointment.countDocuments({
+        doctorId,
+        rating: 5, // Only count 5-star ratings
+        status: 'completed'
+      });
+  
+      // Calculate average rating
+      const ratingStats = await Appointment.aggregate([
+        {
+          $match: {
+            doctorId: mongoose.Types.ObjectId.isValid(doctorId) 
+              ? new mongoose.Types.ObjectId(doctorId) 
+              : doctorId,
+            rating: { $ne: null },
+            status: 'completed'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: '$rating' }
+          }
+        }
+      ]);
+  
+      const averageRating = ratingStats.length > 0 ? ratingStats[0].averageRating : 0;
+  
+      // Return only the chart data without the reviews list
+      return res.status(200).json({
+        success: true,
+        total,
+        fiveStarCount,
+        averageRating
+      });
+    } catch (error) {
+      console.error('Error in getReviewsForChart:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Server error while fetching review statistics'
+      });
+    }
+  };
 
   export const getPrivateReviews = async (req: any, res: any)=> {
     try {
