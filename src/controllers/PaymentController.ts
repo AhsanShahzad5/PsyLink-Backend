@@ -183,23 +183,20 @@ const confirmPayment = async (req: any, res: any) => {
     await patient.save();
 
     // Update the doctor's availability slots for this date and time
-    await Doctor.updateOne(
-      {
-        _id: doctorId,
-        'availability.date': date,
-        'availability.slots.time': time
-      },
+    await Doctor.findOneAndUpdate(
+      { userId: doctorId },
       {
         $set: {
-          'availability.$[date].slots.$[slot].status': 'booked',
-          'availability.$[date].slots.$[slot].bookedBy': patientId
+          "availability.$[dateElem].slots.$[timeElem].status": "booked",
+          "availability.$[dateElem].slots.$[timeElem].bookedBy": patientId
         }
       },
       {
         arrayFilters: [
-          { 'date.date': date },
-          { 'slot.time': time }
-        ]
+          { "dateElem.date": date },
+          { "timeElem.time": time }
+        ],
+        new: true
       }
     );
 

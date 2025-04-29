@@ -125,7 +125,6 @@ const checkVerificationStatus = async (req: any, res: any) => {
 };
 
 
-
 const setAvailableSlots = async (req: any, res: any) => {
     try {
         const userId = req.user._id;

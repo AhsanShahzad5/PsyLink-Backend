@@ -4,6 +4,7 @@ import User from '../models/UserModel';
 import bcryptjs from 'bcryptjs'
 import Doctor from '../models/DoctorModel';
 import Patient from '../models/PatientModel';
+import MoodProgressReport from '../models/MoodReportsModel';
 import Note from '../models/NotesModel';
 import { v4 as uuidv4 } from 'uuid';
 import Appointment from '../models/AppointmentModel'
@@ -852,6 +853,7 @@ const getTodayMood = async (req: any, res: any) => {
   }
 };
 
+
 // Get moods for the last 15 days
 const getMoodsForLast15Days = async (req: any, res: any) => {
   try {
@@ -881,15 +883,15 @@ const getMoodsForLast15Days = async (req: any, res: any) => {
         const entryDate = new Date(entry.date);
         return entryDate >= startDate && entryDate <= endDate;
       })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Generate all dates in the range
+    // Generate all dates in the range in descending order
     const dateRange = [];
-    const currentDate = new Date(startDate);
+    const currentDate = new Date(endDate);
     
-    while (currentDate <= endDate) {
+    while (currentDate >= startDate) {
       dateRange.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate.setDate(currentDate.getDate() - 1);
     }
 
     // Map the mood entries to the date range
@@ -903,6 +905,7 @@ const getMoodsForLast15Days = async (req: any, res: any) => {
       return {
         date: dateString,
         mood: matchingEntry ? matchingEntry.mood : null
+        
       };
     });
 
@@ -915,7 +918,10 @@ const getMoodsForLast15Days = async (req: any, res: any) => {
           totalDays: 15,
           daysWithMoodLogged: moodEntries.length
         }
-      }
+      } ,
+      patientName: patient.personalInformation?.fullName || 'Ahsan shahzad', // Replace with actual patient name field
+      patientGender: patient.personalInformation?.gender || 'Male', // Replace with actual patient sex field
+      patientAge: patient.personalInformation?.age || 20, 
     });
   } catch (error) {
     console.error('Error getting mood history:', error);
@@ -980,4 +986,160 @@ export const saveReview = async (req: Request, res: Response) => {
 };
 
 
-export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments, submitPatientPersonalDetails , getPatientDetails , updatePatientPersonalDetails , moodLogging , getTodayMood, getMoodsForLast15Days}
+// Create and save a new mood progress report
+const createMoodProgressReport = async (req:any, res:any) => {
+  try {
+    const userId = req.user._id;
+    const { 
+      //patientId, 
+      medicines, 
+      moodData, 
+      summary, 
+      daysGoingWell, 
+      daysGoingBad, 
+      daysWithNoMood, 
+      moodAvgPercentage 
+    } = req.body;
+
+    // Find the patient to get their details
+    // const patient = await Patient.findById(patientId);
+
+    const patient = await Patient.findOne({ userId: userId });
+
+    
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Patient not found'
+      });
+    }
+
+    // Get user info for verification
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Determine progress status based on mood average percentage
+    let progressStatus;
+    if (moodAvgPercentage >= 70) {
+      progressStatus = 'Good Progress';
+    } else if (moodAvgPercentage >= 40) {
+      progressStatus = 'Average Progress';
+    } else {
+      progressStatus = 'Needs Improvement';
+    }
+
+    // Create a new mood progress report
+    const newReport = new MoodProgressReport({
+      userId,
+      //patientId,
+      patientName: patient.personalInformation?.fullName || 'Ahsan shahzad', // Replace with actual patient name field
+      patientSex: patient.personalInformation?.gender || 'Male', // Replace with actual patient sex field
+      patientAge: patient.personalInformation?.age || 20, // Replace with actual patient age field
+      daysWithMoodLogged: summary.daysWithMoodLogged,
+      totalDays: summary.totalDays,
+      prescribedMedicines: medicines || 'None',
+      moodAvgPercentage,
+      progressStatus,
+      moodData,
+      daysGoingWell,
+      daysGoingBad,
+      daysWithNoMood
+    });
+
+    // Save the report to the database
+    const savedReport = await newReport.save();
+
+    return res.status(201).json({
+      patientName: patient.personalInformation?.fullName || 'Ahsan shahzad', // Replace with actual patient name field
+      patientGender: patient.personalInformation?.gender || 'Male', // Replace with actual patient sex field
+      patientAge: patient.personalInformation?.age || 20, // Replace with actual patient age field
+      daysWithMoodLogged: summary.daysWithMoodLogged,
+      success: true,
+      message: 'Mood progress report created successfully',
+      data: {
+        reportId: savedReport._id,
+        generatedAt: savedReport.createdAt
+      }
+    });
+  } catch (error:any) {
+    console.error('Error creating mood progress report:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get all reports for a specific patient
+const getPatientReports = async (req:any, res:any) => {
+  try {
+    const userId = req.user._id;
+    const patient = await Patient.findOne({ userId: userId });
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Patient not found'
+      });
+    }
+    const reports = await MoodProgressReport.find({ userId })
+      .sort({ createdAt: -1 }); // Newest first
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Patient reports retrieved successfully',
+      data: reports ,
+      patientName: patient.personalInformation?.fullName || 'Ahsan shahzad', // Replace with actual patient name field
+      patientGender: patient.personalInformation?.gender || 'Male', // Replace with actual patient sex field
+      patientAge: patient.personalInformation?.age || 20, // Replace with actual patient age field
+     });
+  } catch (error:any) {
+    console.error('Error retrieving patient reports:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get a specific report by ID
+const getReportById = async (req:any, res:any) => {
+  try {
+    const { reportId } = req.params;
+    
+    const report = await MoodProgressReport.findById(reportId);
+    
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report not found'
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Report retrieved successfully',
+      data: report
+    });
+  } catch (error:any) {
+    console.error('Error retrieving report:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments, submitPatientPersonalDetails , getPatientDetails , updatePatientPersonalDetails , moodLogging , getTodayMood, getMoodsForLast15Days ,
+  createMoodProgressReport,
+  getPatientReports,
+  getReportById
+}
