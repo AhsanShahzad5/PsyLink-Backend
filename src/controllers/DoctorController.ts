@@ -25,9 +25,17 @@ const submitPersonalDetails = async (req: any, res: any) => {
             const userEmail = req.user.email;
             doctor = new Doctor({ userId, email: userEmail });
         }
-        doctor.personalDetails = { fullName, dateOfBirth, gender, country, city, phoneNo, image };
+
+      let uploadedImageUrl = "";  
+         // 🔹 If image provided, upload to Cloudinary
+      if (image) {
+        const uploadedResponse = await cloudinary.uploader.upload(image);
+        uploadedImageUrl = uploadedResponse.secure_url;
+      }
+
+        doctor.personalDetails = { fullName, dateOfBirth, gender, country, city, phoneNo, image :uploadedImageUrl };
         doctor.status = 'pending';
-        doctor.clinic = { ...doctor.clinic, fullName, country , city, image }
+        doctor.clinic = { ...doctor.clinic, fullName, country , city, image :uploadedImageUrl }
         await doctor.save();
         console.log('Doctor personal details saved:', doctor);
         await AdminNotification.create({
@@ -37,7 +45,7 @@ const submitPersonalDetails = async (req: any, res: any) => {
         });
 
       // Update profileCompleted status on User model
-      await User.findByIdAndUpdate(userId, { profileCompleted: true });
+      await User.findByIdAndUpdate(userId, { profileCompleted: true, profilePicture: image });
     
       // Return user data with updated profileCompleted status
       const updatedUser = await User.findById(userId).select('-password');
