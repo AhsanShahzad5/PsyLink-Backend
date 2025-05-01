@@ -25,9 +25,17 @@ const submitPersonalDetails = async (req: any, res: any) => {
             const userEmail = req.user.email;
             doctor = new Doctor({ userId, email: userEmail });
         }
-        doctor.personalDetails = { fullName, dateOfBirth, gender, country, city, phoneNo, image };
+
+      let uploadedImageUrl = "";  
+         // 🔹 If image provided, upload to Cloudinary
+      if (image) {
+        const uploadedResponse = await cloudinary.uploader.upload(image);
+        uploadedImageUrl = uploadedResponse.secure_url;
+      }
+
+        doctor.personalDetails = { fullName, dateOfBirth, gender, country, city, phoneNo, image :uploadedImageUrl };
         doctor.status = 'pending';
-        doctor.clinic = { ...doctor.clinic, fullName, country , city, image }
+        doctor.clinic = { ...doctor.clinic, fullName, country , city, image :uploadedImageUrl }
         await doctor.save();
         console.log('Doctor personal details saved:', doctor);
         await AdminNotification.create({
@@ -37,7 +45,7 @@ const submitPersonalDetails = async (req: any, res: any) => {
         });
 
       // Update profileCompleted status on User model
-      await User.findByIdAndUpdate(userId, { profileCompleted: true });
+      await User.findByIdAndUpdate(userId, { profileCompleted: true, profilePicture: image });
     
       // Return user data with updated profileCompleted status
       const updatedUser = await User.findById(userId).select('-password');
@@ -832,6 +840,65 @@ export const getDetailsForPrescription = async (req: any, res: any) => {
     }
   };
  
+  export const getReviewsForChart = async (req: any, res: any) => {
+    try {
+      // Get the doctor ID from the authenticated user
+      const doctorId = req.user?._id;
+      
+      if (!doctorId) {
+        return res.status(400).json({ success: false, message: 'Doctor ID is required' });
+      }
+  
+      // Count total reviews
+      const total = await Appointment.countDocuments({
+        doctorId,
+        rating: { $ne: null }, // Only count appointments with ratings
+        status: 'completed' // Only completed appointments can have reviews
+      });
+  
+      // Count five-star ratings
+      const fiveStarCount = await Appointment.countDocuments({
+        doctorId,
+        rating: 5, // Only count 5-star ratings
+        status: 'completed'
+      });
+  
+      // Calculate average rating
+      const ratingStats = await Appointment.aggregate([
+        {
+          $match: {
+            doctorId: mongoose.Types.ObjectId.isValid(doctorId) 
+              ? new mongoose.Types.ObjectId(doctorId) 
+              : doctorId,
+            rating: { $ne: null },
+            status: 'completed'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: '$rating' }
+          }
+        }
+      ]);
+  
+      const averageRating = ratingStats.length > 0 ? ratingStats[0].averageRating : 0;
+  
+      // Return only the chart data without the reviews list
+      return res.status(200).json({
+        success: true,
+        total,
+        fiveStarCount,
+        averageRating
+      });
+    } catch (error) {
+      console.error('Error in getReviewsForChart:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Server error while fetching review statistics'
+      });
+    }
+  };
 
   export const getPrivateReviews = async (req: any, res: any)=> {
     try {
