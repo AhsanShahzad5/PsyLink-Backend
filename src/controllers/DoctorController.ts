@@ -12,6 +12,26 @@ const test = (req: Request, res: Response) => {
     res.json({ message: 'welcome to doctor' });
 }
 
+// get a drs details 
+const getDoctorDetails = async (req: any, res: any) => {
+    try {
+        const userId = req.user._id;
+        if (req.user.role.toLowerCase() !== 'doctor') {
+            return res.status(403).json({ message: 'Only doctors can access their details' });
+        }
+        const doctor = await Doctor.findOne({ userId }).populate('userId', '-password');
+        if (!doctor) {
+            return res.status(404).json({ message: 'Doctor not found' });
+        }
+        res.status(200).json({ message: 'Doctor details fetched successfully', doctor });
+    } catch (error) {
+        console.error('Error in getDoctorDetails:', error);
+        res.status(500).json({ message: 'An error occurred while fetching doctor details' });
+    }
+};
+
+
+
 const submitPersonalDetails = async (req: any, res: any) => {
     try {
         const { fullName, dateOfBirth, gender, country, city, phoneNo, image } = req.body;
@@ -989,5 +1009,5 @@ export const getDetailsForPrescription = async (req: any, res: any) => {
   };
 
 
-export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus, getDoctorProfessionalDetails, setAvailableSlots, markSlotsAsBusy,getClinicDetails, saveClinicDetails,getAvailability }
+export {test, submitPersonalDetails, submitProfessionalDetails,checkVerificationStatus, getDoctorProfessionalDetails, setAvailableSlots, markSlotsAsBusy,getClinicDetails, saveClinicDetails,getAvailability , getDoctorDetails }
 

@@ -30,10 +30,10 @@ router.get('/doctors/pending', getPendingDoctors);
 router.post('/doctors/verify/:id', verifyDoctor);
 
 
+router.post('/doctors/reject/:id', rejectDoctor);
 router.get('/doctors', getAllDoctors);
 router.get('/doctors/verified', getVerifiedDoctors);
 router.get('/doctors/:id', getDoctorDetails);
-router.post('/doctors/reject/:id', rejectDoctor);
 router.delete('/doctors/:id', deleteDoctor);
 
 // Patient management routes

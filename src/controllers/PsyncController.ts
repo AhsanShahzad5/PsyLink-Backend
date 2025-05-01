@@ -24,12 +24,12 @@ const CreatePost = async (req: Request, res: Response) => {
     }
 
     // Validate title and description length
-    if (title.length > 100) {
-      return res.status(400).json({ error: "Title cannot exceed 100 characters" });
+    if (title.length > 250) {
+      return res.status(400).json({ error: "Title cannot exceed 250 characters" });
     }
-    if (description.length > 500) {
-      return res.status(400).json({ error: "Description cannot exceed 500 characters" });
-    }
+    // if (description.length > 500) {
+    //   return res.status(400).json({ error: "Description cannot exceed 500 characters" });
+    // }
 
     // Handle optional image upload
     let imageUrl = "";
@@ -234,32 +234,33 @@ const getMyFavoritedPosts = async (req: Request, res: Response) => {
   }
 };
 
-
-
 // add a function to favorite a post
+// Toggle a post to/from favorites
 const addPostToFavorite = async (req: Request, res: Response) => {
   try {
     const postId = req.params.postId;
-    const userId = req.body.userId; // Assuming `req.user` contains the authenticated user's ID from middleware.
-
+    const userId = req.body.userId;
+    
     const post = await Post.findById(postId);
+    
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
-
-    // Check if the user has already favorited the post
-    if (post.favouritedBy?.includes(userId)) {
-      return res.status(400).json({ error: "Post already favorited" });
+    
+    const userFavoritedPost = post.favouritedBy?.includes(userId);
+    
+    if (userFavoritedPost) {
+      // Remove from favorites
+      await Post.updateOne({ _id: postId }, { $pull: { favouritedBy: userId } });
+      res.status(200).json({ message: "Post removed from favorites successfully" });
+    } else {
+      // Add to favorites
+      post.favouritedBy?.push(userId);
+      await post.save();
+      res.status(200).json({ message: "Post added to favorites successfully" });
     }
-
-    // Add the user ID to the `favouritedBy` array
-    post.favouritedBy?.push(userId);
-    await post.save();
-
-    res.status(200).json({ success: true, post });
-  } catch (error: any) {
-    console.error("Error favoriting post:", error.message);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
   }
 };
 
@@ -410,9 +411,64 @@ const UpdatePost = async (req: Request, res: Response) => {
   }
 };
 
-// Don't forget to export the function
+
+// Add these two controller functions to your existing controllers
+
+// Controller to check if a user has liked a post
+const checkLikeStatus = async (req: Request, res: Response) => {
+  try {
+    const postId = req.params.postId;
+    const userId = req.query.userId as string;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const post = await Post.findById(postId);
+    
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    // Check if the user has liked the post
+    const isLiked = post.likes.includes(new mongoose.Types.ObjectId(userId));
+
+    return res.status(200).json({ isLiked });
+  } catch (error: any) {
+    console.error("Error checking like status:", error.message);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Controller to check if a user has favorited a post
+const checkFavoriteStatus = async (req: Request, res: Response) => {
+  try {
+    const postId = req.params.postId;
+    const userId = req.query.userId as string;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const post = await Post.findById(postId);
+    
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    // Check if the user has favorited the post
+    const isFavorited = post.favouritedBy?.includes(new mongoose.Types.ObjectId(userId)) || false;
+
+    return res.status(200).json({ isFavorited });
+  } catch (error: any) {
+    console.error("Error checking favorite status:", error.message);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Don't forget to add these functions to your exports
 export {
   test, GetPostById, CreatePost, GetAllPosts, DeletePost, GetMyPosts,
   getMyFavoritedPosts, addPostToFavorite, likeUnlikePost, commentOnPost,
-  searchPostByTitle, getPostComments, UpdatePost
+  searchPostByTitle, getPostComments, UpdatePost, checkLikeStatus, checkFavoriteStatus
 };
