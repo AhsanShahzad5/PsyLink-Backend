@@ -1,6 +1,6 @@
 import express from "express";
 import { submitPersonalDetails, test } from "../controllers/DoctorController";
-import {moodLogging, addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete, getTodayMood, getMoodsForLast15Days, getPatientPrescriptions, saveReview, getPreviousPrograms, createMoodProgressReport, getPatientReports, getReportById } from "../controllers/PatientController";
+import {moodLogging, addNote, bookAppointment,  deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete, getTodayMood, getMoodsForLast15Days, getPatientPrescriptions, saveReview, getPreviousPrograms, createMoodProgressReport, getPatientReports, getReportById, getHistoryAppointments } from "../controllers/PatientController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
@@ -14,6 +14,7 @@ router.put('/details/personal/update', isAuthenticated, updatePatientPersonalDet
 router.get('/doctors', getVerifiedDoctors);
 router.post('/book/appointment', isAuthenticated, bookAppointment);
 router.get('/booked/appointment', isAuthenticated, getBookedAppointments);
+router.get('/history/appointment', isAuthenticated, getHistoryAppointments);
 router.post('/notes/addNotes',  addNote);
 router.put('/notes/editNotes', editNote);
 router.delete('/notes/deleteNotes', deleteNote);
