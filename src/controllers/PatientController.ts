@@ -1084,7 +1084,7 @@ export const saveReview = async (req: Request, res: Response) => {
       appointment.status = 'completed';
       await appointment.save();
     }
-
+    console.log("added a console for checking push in master")
     return res.status(200).json({ message: 'Review saved successfully' });
   } catch (error) {
     console.error('Error saving review:', error);
