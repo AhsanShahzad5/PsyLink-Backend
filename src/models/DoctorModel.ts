@@ -14,6 +14,11 @@ const DoctorSchema = new Schema({
         unique: true,
     },
     
+    rating:{
+        TotalStars:{ type: Number, required: false, default: 0},
+        TotalReviews:{ type: Number, required: false , default: 0}
+    },
+
     status: { type: String, enum: ['pending', 'verified'], default: 'pending' },
 
     personalDetails: {

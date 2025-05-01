@@ -10,6 +10,8 @@ import { v4 as uuidv4 } from 'uuid';
 import Appointment from '../models/AppointmentModel'
 import Prescription from '../models/PrescriptionModel';
 import { v2 as cloudinary } from "cloudinary";
+import mongoose from 'mongoose';
+
 
 const test = (req: Request, res: Response) => {
   res.json({ message: 'welcome to patient' });
@@ -24,26 +26,39 @@ const getVerifiedDoctors = async (req: any, res: any) => {
     
     // Find verified doctors
     const verifiedDoctors = await Doctor.find({ status: 'verified' })
-      .select('clinic availability userId')
+      .select('clinic availability userId rating')
       .lean();
     
-    // Filter out past dates and unavailable slots
-    const filteredDoctors = verifiedDoctors.map(doctor => ({
-      ...doctor,
-      availability: doctor.availability
-        // First filter out past dates
-        .filter(day => {
-          // Compare dates as strings in YYYY-MM-DD format
-          return day.date && day.date >= todayString;
-        })
-        // Then filter the slots for each remaining day
-        .map(day => ({
-          ...day,
-          slots: day.slots.filter(slot => slot.status === 'available')
-        }))
-        // Finally, remove days with no available slots
-        .filter(day => day.slots.length > 0)
-    }));
+    // Filter out past dates and unavailable slots and calculate average rating
+    const filteredDoctors = verifiedDoctors.map(doctor => {
+      // Calculate average rating
+      const avgRating = doctor.rating && 
+                       doctor.rating.TotalReviews !== undefined && 
+                       doctor.rating.TotalReviews !== null && 
+                       doctor.rating.TotalReviews > 0 && 
+                       doctor.rating.TotalStars !== undefined && 
+                       doctor.rating.TotalStars !== null
+        ? (doctor.rating.TotalStars / doctor.rating.TotalReviews).toFixed(1) 
+        : "0.0";
+      
+      return {
+        ...doctor,
+        avgRating: avgRating,
+        availability: doctor.availability
+          // First filter out past dates
+          .filter(day => {
+            // Compare dates as strings in YYYY-MM-DD format
+            return day.date && day.date >= todayString;
+          })
+          // Then filter the slots for each remaining day
+          .map(day => ({
+            ...day,
+            slots: day.slots.filter(slot => slot.status === 'available')
+          }))
+          // Finally, remove days with no available slots
+          .filter(day => day.slots.length > 0)
+      };
+    });
     
     res.status(200).json(filteredDoctors);
   } catch (error) {
@@ -240,6 +255,7 @@ const getBookedAppointments = async (req: any, res: any) => {
       }
       
       try {
+        console.log("we are in try block");
         const [startTime] = appointment.time.split("-").map((t: any) => t.trim());
         const formattedTime = convertTo24HourFormat(startTime);
         const appointmentDate = new Date(`${appointment.date}T${formattedTime}:00`);
@@ -251,6 +267,7 @@ const getBookedAppointments = async (req: any, res: any) => {
           const timeDiff = currentDate.getTime() - appointmentDate.getTime();
           if (timeDiff > 1000 * 60 * 60) {
             status = "history";
+            console.log("this appointment is guzar chuki : ", appointment.appointmentId)
           }
         }
         const joinIn = status === "upcoming" ? getTimeRemaining(appointmentDate) : null;
@@ -272,13 +289,70 @@ const getBookedAppointments = async (req: any, res: any) => {
         return null;
       }
     }).filter(Boolean);
-    
+    console.log("These are boookedAppointments", bookedAppointments)
     res.status(200).json(bookedAppointments);
   } catch (error) {
     console.error("Error fetching booked appointments:", error);
     res.status(500).json({ message: "An error occurred while fetching appointments." });
   }
 };
+
+export const getHistoryAppointments = async (req: any, res: any) => {
+  try {
+    // Get the current user's ID from the request
+    const userId = req.user._id;
+
+    // Find the patient by userId
+    const patient = await Patient.findOne({ userId });
+
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    // Create a list to store the history appointments with additional data
+    const historyAppointmentsWithDetails = [];
+
+    // Process each previous appointment if they exist
+    const previousAppointments = patient.appointments?.previous || [];
+    for (const prevAppointment of previousAppointments) {
+      try {
+        // Find the appointment details in the Appointment model
+        const appointmentDetails = await Appointment.findOne({ 
+          appointmentId: prevAppointment.appointmentId 
+        });
+
+        // Find the doctor details to get the image
+        const doctor = await Doctor.findOne({ userId: prevAppointment.doctorId });
+
+        if (appointmentDetails && doctor) {
+          // Create a history appointment object with all required details
+          const historyAppointment = {
+            id: new mongoose.Types.ObjectId().toString(), // Generate a unique ID
+            appointmentId: prevAppointment.appointmentId,
+            doctorName: appointmentDetails.doctorName,
+            specialization: doctor.clinic?.specialisation || "N/A",
+            appointmentTime: prevAppointment.time,
+            date: prevAppointment.date,
+            rating: appointmentDetails.rating || 0,
+            review: appointmentDetails.review || "",
+            imageUrl: doctor.clinic?.image || "/src/assets/patient/doctor/doctor.png", // Default image if not available
+          };
+
+          historyAppointmentsWithDetails.push(historyAppointment);
+        }
+      } catch (err) {
+        console.error(`Error processing appointment ${prevAppointment.appointmentId}:`, err);
+        // Continue with the next appointment even if one fails
+      }
+    }
+
+    return res.status(200).json(historyAppointmentsWithDetails);
+  } catch (error:any) {
+    console.error("Error fetching history appointments:", error);
+    return res.status(500).json({ message: "Failed to fetch history appointments", error: error.message });
+  }
+};
+
 
 const convertTo24HourFormat = (time: string) => {
   const match = time.match(/^(\d{1,2}):?(\d{2})?\s?(AM|PM)?$/i);
@@ -1062,9 +1136,10 @@ const getMoodsForLast15Days = async (req: any, res: any) => {
   }
 };
 
-export const saveReview = async (req: Request, res: Response) => {
+export const saveReview = async (req: any, res: any) => {
   try {
     const { appointmentId, rating, review, privateReview } = req.body;
+    const userId = req.user._id;
 
     if (!appointmentId) {
       return res.status(400).json({ message: 'Appointment ID is required' });
@@ -1080,41 +1155,103 @@ export const saveReview = async (req: Request, res: Response) => {
     // Update the appointment with rating and review
     appointment.rating = rating;
     appointment.review = review;
+    
+    // Update appointment status to completed if not already
+    if (appointment.status !== 'completed') {
+      appointment.status = 'completed';
+    }
+    
     await appointment.save();
 
-    // If there's a private review, add it to the doctor's privateReviews
-    if (privateReview && privateReview.trim() !== '') {
-      const doctor = await Doctor.findOne({ userId: appointment.doctorId });
-
-      if (!doctor) {
-        return res.status(404).json({ message: 'Doctor not found' });
+    // Find the doctor regardless of whether there's a private review
+    const doctor = await Doctor.findOne({ userId: appointment.doctorId });
+      
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+    
+    // Update TotalStars and TotalReviews in doctor's rating
+    if (!doctor.rating) {
+      doctor.rating = { TotalStars: 0, TotalReviews: 0 };
+    }
+    
+    // Safely access and update the rating fields
+    doctor.rating.TotalStars = (doctor.rating.TotalStars || 0) + rating; // Add the rating value to TotalStars
+    doctor.rating.TotalReviews = (doctor.rating.TotalReviews || 0) + 1; // Increment TotalReviews by 1
+    
+    // Remove the appointment from doctor's appointments array
+    if (doctor.appointments && doctor.appointments.length > 0) {
+      const appointmentIndex = doctor.appointments.findIndex(
+        appt => appt.appointmentId === appointmentId
+      );
+      
+      if (appointmentIndex >= 0) {
+        doctor.appointments.splice(appointmentIndex, 1);
       }
-
-      // Add private review to doctor
+    }
+    
+    // Add private review to doctor if provided
+    if (privateReview && privateReview.trim() !== '') {
       doctor.privateReviews = doctor.privateReviews || [];
       doctor.privateReviews.push({
         patientId: appointment.patientId,
         patientName: appointment.patientName,
         privateReview
       });
+    }
+    
+    await doctor.save();
 
-      await doctor.save();
+    // Find the patient and update appointment records
+    const patient = await Patient.findOne({ userId });
+    
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found' });
     }
 
-    // Update appointment status to completed if not already
-    if (appointment.status !== 'completed') {
-      appointment.status = 'completed';
-      await appointment.save();
+    // Initialize arrays if they don't exist
+    // patient.appointments = patient.appointments || { upcoming: [], previous: [] };
+    
+    // Find the appointment in the upcoming array
+    const upcomingIndex = patient.appointments?.upcoming?.findIndex(
+      upcomingAppt => upcomingAppt.appointmentId === appointmentId
+    );
+
+    // If found in upcoming array
+    if (upcomingIndex !== undefined && upcomingIndex >= 0 && patient.appointments?.upcoming) {
+      const upcomingAppointment = patient.appointments?.upcoming[upcomingIndex];
+      
+      // Create entry for previous appointments with rating and review
+      const previousAppointment = {
+        appointmentId: upcomingAppointment.appointmentId,
+        doctorId: upcomingAppointment.doctorId,
+        date: upcomingAppointment.date,
+        time: upcomingAppointment.time,
+        status: 'completed',
+        feedback: review || '',
+        rating: rating || 0
+      };
+
+      // Add to previous appointments array
+      patient.appointments.previous = patient.appointments?.previous || [];
+      patient.appointments.previous.push(previousAppointment);
+      
+      // Remove from upcoming appointments array
+      patient.appointments?.upcoming.splice(upcomingIndex, 1);
+      
+      // Save patient changes
+      await patient.save();
+    } else {
+      console.log(`Appointment ${appointmentId} not found in patient's upcoming appointments`);
     }
-    console.log("added a console for checking push in master")
+
+    console.log("Review saved and appointment moved to history successfully");
     return res.status(200).json({ message: 'Review saved successfully' });
-  } catch (error) {
+  } catch (error:any) {
     console.error('Error saving review:', error);
-    return res.status(500).json({ message: 'Failed to save review' });
+    return res.status(500).json({ message: 'Failed to save review', error: error.message });
   }
 };
-
-
 // Create and save a new mood progress report
 const createMoodProgressReport = async (req:any, res:any) => {
   try {
