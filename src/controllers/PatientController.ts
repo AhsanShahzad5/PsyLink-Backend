@@ -15,23 +15,39 @@ const test = (req: Request, res: Response) => {
 }
 
 
-
-
 const getVerifiedDoctors = async (req: any, res: any) => {
   try {
-      const verifiedDoctors = await Doctor.find({ status: 'verified' })
-          .select('clinic availability userId')
-          .lean();
-      const filteredDoctors = verifiedDoctors.map(doctor => ({
-          ...doctor,
-          availability: doctor.availability.map(day => ({
-              ...day,
-              slots: day.slots.filter(slot => slot.status === 'available')
-          })).filter(day => day.slots.length > 0)
-      }));
-      res.status(200).json(filteredDoctors);
+    // Get current date without time component
+    const currentDate = new Date();
+    const todayString = currentDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+    
+    // Find verified doctors
+    const verifiedDoctors = await Doctor.find({ status: 'verified' })
+      .select('clinic availability userId')
+      .lean();
+    
+    // Filter out past dates and unavailable slots
+    const filteredDoctors = verifiedDoctors.map(doctor => ({
+      ...doctor,
+      availability: doctor.availability
+        // First filter out past dates
+        .filter(day => {
+          // Compare dates as strings in YYYY-MM-DD format
+          return day.date && day.date >= todayString;
+        })
+        // Then filter the slots for each remaining day
+        .map(day => ({
+          ...day,
+          slots: day.slots.filter(slot => slot.status === 'available')
+        }))
+        // Finally, remove days with no available slots
+        .filter(day => day.slots.length > 0)
+    }));
+    
+    res.status(200).json(filteredDoctors);
   } catch (error) {
-      res.status(500).json("ERROR");
+    console.error("Error in getVerifiedDoctors:", error);
+    res.status(500).json("ERROR");
   }
 };
 

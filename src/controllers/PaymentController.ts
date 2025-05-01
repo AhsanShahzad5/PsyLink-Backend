@@ -183,22 +183,30 @@ const confirmPayment = async (req: any, res: any) => {
     await patient.save();
 
     // Update the doctor's availability slots for this date and time
-    await Doctor.findOneAndUpdate(
-      { userId: doctorId },
-      {
-        $set: {
-          "availability.$[dateElem].slots.$[timeElem].status": "booked",
-          "availability.$[dateElem].slots.$[timeElem].bookedBy": patientId
-        }
-      },
-      {
-        arrayFilters: [
-          { "dateElem.date": date },
-          { "timeElem.time": time }
-        ],
-        new: true
-      }
-    );
+    // Add this after your findOneAndUpdate call in confirmPayment
+const updatedDoctor = await Doctor.findOneAndUpdate(
+  { userId: doctorId },
+  {
+    $set: {
+      "availability.$[dateElem].slots.$[timeElem].status": "booked",
+      "availability.$[dateElem].slots.$[timeElem].bookedBy": patientId
+    }
+  },
+  {
+    arrayFilters: [
+      { "dateElem.date": date },
+      { "timeElem.time": time }
+    ],
+    new: true
+  }
+);
+
+   // Debug: Check if update worked
+console.log("Update successful:", !!updatedDoctor);
+console.log("Updated slot status:", JSON.stringify(
+  updatedDoctor?.availability.find(a => a.date === date)?.slots.find(s => s.time === time),
+  null, 2
+));
 
     res.status(200).json({
       success: true,

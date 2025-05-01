@@ -283,54 +283,171 @@ const getClinicDetails = async (req: any, res: any) => {
     }
   };
 
-  const getAvailability = async (req: any, res: any) => {
-    try {
-      const userId = req.user._id;
+  // const getAvailability = async (req: any, res: any) => {
+  //   try {
+  //     const userId = req.user._id;
   
-      if (req.user.role.toLowerCase() !== "doctor") {
-        return res.status(403).json({ message: "Only doctors can view availability" });
-      }
+  //     if (req.user.role.toLowerCase() !== "doctor") {
+  //       return res.status(403).json({ message: "Only doctors can view availability" });
+  //     }
   
-      const doctor = await Doctor.findOne({ userId });
+  //     const doctor = await Doctor.findOne({ userId });
   
-      if (!doctor) {
-        return res.status(404).json({ message: "Doctor not found" });
-      }
+  //     if (!doctor) {
+  //       return res.status(404).json({ message: "Doctor not found" });
+  //     }
   
-      const currentDate = new Date(); // Current Date and Time
+  //     const currentDate = new Date(); // Current Date and Time
   
-      const availabilityDetails = doctor.availability
-        .filter((day: any) => {
-          const slotDate = new Date(day.date);
-          // Only include slots with date today or future
-          return slotDate >= new Date(currentDate.toDateString());
-        })
-        .map((day: any) => {
-          const availableSlots = day.slots.filter((slot: any) => slot.status === "available").map((slot: any) => slot.time);
-          const busySlots = day.slots.filter((slot: any) => slot.status === "busy").map((slot: any) => slot.time);
-          const bookedSlots = day.slots.filter((slot: any) => slot.status === "booked").map((slot: any) => slot.time);
+  //     const availabilityDetails = doctor.availability
+  //       .filter((day: any) => {
+  //         const slotDate = new Date(day.date);
+  //         // Only include slots with date today or future
+  //         return slotDate >= new Date(currentDate.toDateString());
+  //       })
+  //       .map((day: any) => {
+  //         const availableSlots = day.slots.filter((slot: any) => slot.status === "available").map((slot: any) => slot.time);
+  //         const busySlots = day.slots.filter((slot: any) => slot.status === "busy").map((slot: any) => slot.time);
+  //         const bookedSlots = day.slots.filter((slot: any) => slot.status === "booked").map((slot: any) => slot.time);
   
-          return {
-            date: day.date,
-            availableSlots,
-            busySlots,
-            bookedSlots
-          };
-        });
+  //         return {
+  //           date: day.date,
+  //           availableSlots,
+  //           busySlots,
+  //           bookedSlots
+  //         };
+  //       });
   
-      return res.status(200).json({ success: true, availability: availabilityDetails });
-    } catch (error) {
-      console.error("Error in getAvailability:", error);
-      return res.status(500).json({ message: "Failed to fetch availability" });
+  //     return res.status(200).json({ success: true, availability: availabilityDetails });
+  //   } catch (error) {
+  //     console.error("Error in getAvailability:", error);
+  //     return res.status(500).json({ message: "Failed to fetch availability" });
+  //   }
+  // };
+
+
+
+const getAvailabilityold = async (req: any, res: any) => {
+  try {
+    const userId = req.user._id;
+
+    if (req.user.role.toLowerCase() !== "doctor") {
+      return res.status(403).json({ message: "Only doctors can view availability" });
     }
-  };
 
+    const doctor = await Doctor.findOne({ userId });
 
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor not found" });
+    }
 
-//  Get upcoming appointments for a doctor and clean up past appointments
-//  @param req Request containing doctorId
-//  @param res Response with upcoming appointments
- 
+    // Debug: Log the full availability data to see what's actually in the database
+    console.log("Doctor availability data:", JSON.stringify(doctor.availability, null, 2));
+
+    const currentDate = new Date(); // Current Date and Time
+    const currentDateStr = currentDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+    const availabilityDetails = doctor.availability
+      .filter((day: any) => {
+        // If stored as string, handle accordingly
+        const dateCompare = new Date(day.date);
+        const today = new Date(currentDate.toDateString());
+        return dateCompare >= today;
+      })
+      .map((day: any) => {
+        // Debug: Log each day's slots to see statuses
+        console.log(`Slots for ${day.date}:`, day.slots);
+
+        const availableSlots = day.slots.filter((slot: any) => 
+          slot.status === "available").map((slot: any) => slot.time);
+        
+        const busySlots = day.slots.filter((slot: any) => 
+          slot.status === "busy").map((slot: any) => slot.time);
+        
+        const bookedSlots = day.slots.filter((slot: any) => 
+          slot.status === "booked").map((slot: any) => slot.time);
+
+        // Debug: Log the filtered slot counts
+        console.log(`For date ${day.date}: available: ${availableSlots.length}, busy: ${busySlots.length}, booked: ${bookedSlots.length}`);
+
+        return {
+          date: day.date,
+          availableSlots,
+          busySlots,
+          bookedSlots
+        };
+      });
+
+    return res.status(200).json({ success: true, availability: availabilityDetails });
+  } catch (error) {
+    console.error("Error in getAvailability:", error);
+    return res.status(500).json({ message: "Failed to fetch availability" });
+  }
+};
+
+const getAvailability = async (req: any, res: any) => {
+  try {
+    const userId = req.user._id;
+
+    if (req.user.role.toLowerCase() !== "doctor") {
+      return res.status(403).json({ message: "Only doctors can view availability" });
+    }
+
+    const doctor = await Doctor.findOne({ userId });
+
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor not found" });
+    }
+
+    // Get today's date in YYYY-MM-DD format (without time component)
+    const today = new Date();
+    const todayFormatted = today.getFullYear() + '-' + 
+                          String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                          String(today.getDate()).padStart(2, '0');
+    
+    console.log("Today's formatted date for comparison:", todayFormatted);
+
+    const availabilityDetails = doctor.availability
+      .filter((day) => {
+        // Extract just the date part regardless of format
+        // If day.date is a full ISO string, this will extract just the YYYY-MM-DD part
+     // Extract just the date part regardless of format
+        // If day.date is a full ISO string, this will extract just the YYYY-MM-DD part
+        const dayDate = typeof day.date === 'string' ? day.date.split('T')[0] : null;
+        
+        if (!dayDate) {
+          console.log("Could not extract date from:", day.date);
+          return false;
+        }
+        
+        console.log(`Comparing date: ${dayDate} with today: ${todayFormatted}`);
+        return dayDate >= todayFormatted;
+      })
+      .map((day) => {
+        const availableSlots = day.slots.filter((slot) => 
+          slot.status === "available").map((slot) => slot.time);
+        
+        const busySlots = day.slots.filter((slot) => 
+          slot.status === "busy").map((slot) => slot.time);
+        
+        const bookedSlots = day.slots.filter((slot) => 
+          slot.status === "booked").map((slot) => slot.time);
+
+        return {
+          date: day.date?.split('T')[0], // Send just the YYYY-MM-DD part back to frontend
+          availableSlots,
+          busySlots,
+          bookedSlots
+        };
+      });
+
+    return res.status(200).json({ success: true, availability: availabilityDetails });
+  } catch (error) {
+    console.error("Error in getAvailability:", error);
+    return res.status(500).json({ message: "Failed to fetch availability" });
+  }
+};
+
 export const getUpcomingAppointments = async (req: Request, res: Response) => {
     try {
       // Handle doctorId from either params or query, ensuring it's a string
