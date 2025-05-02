@@ -21,7 +21,7 @@ const PostSchema = new Schema(
       type: String,
       required: [true, "Post title is required"],
       trim: true,
-      maxLength: [100, "Title cannot exceed 100 characters"],
+      maxLength: [250, "Title cannot exceed 250 characters"],
     },
     description: {
       type: String,

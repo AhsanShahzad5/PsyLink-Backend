@@ -56,12 +56,12 @@ export const createANewSeries = async (req: Request, res: Response) => {
     // 🔹 6️⃣ If Post Details are Provided, Create the Post
     if (postTitle && postDescription) {
       // Validate Post Title & Description Length
-      if (postTitle.length > 100) {
-        return res.status(400).json({ error: "Post title cannot exceed 100 characters" });
+      if (postTitle.length > 250) {
+        return res.status(400).json({ error: "Post title cannot exceed 250 characters" });
       }
-      if (postDescription.length > 500) {
-        return res.status(400).json({ error: "Post description cannot exceed 500 characters" });
-      }
+      // if (postDescription.length > 500) {
+      //   return res.status(400).json({ error: "Post description cannot exceed 500 characters" });
+      // }
       
       const newPost = new Post({
         title: postTitle,
@@ -158,12 +158,12 @@ export const addPostToExistingSeries = async (req: Request, res: Response) => {
     } 
  
     // ✅ Validate post title and description length 
-    if (!title || title.length > 30) { 
-      return res.status(400).json({ error: "Title is required and cannot exceed 30 characters" }); 
+    if (!title || title.length > 250) { 
+      return res.status(400).json({ error: "Title is required and cannot exceed 250 characters" }); 
     } 
-    if (!description || description.length > 250) { 
-      return res.status(400).json({ error: "Description is required and cannot exceed 250 characters" }); 
-    } 
+    // if (!description || description.length > 250) { 
+    //   return res.status(400).json({ error: "Description is required and cannot exceed 250 characters" }); 
+    // } 
  
     // ✅ Handle optional image upload 
     let imageUrl = ""; 
