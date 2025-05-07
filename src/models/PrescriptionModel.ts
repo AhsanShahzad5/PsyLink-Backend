@@ -12,6 +12,7 @@ export interface IPrescription extends Document {
   date: Date;
   doctorName: string;
   doctorId: string;
+  doctorSpecialisation: string;
   patientId: string;
   patientName: string;
   patientGender: string;
@@ -41,6 +42,11 @@ const PrescriptionSchema: Schema = new Schema(
     doctorId: {
       type: String,
       required: true,
+    },
+    doctorSpecialisation: {
+      type: String,
+      // required: true,
+      required: false,
     },
     patientId: {
       type: String,

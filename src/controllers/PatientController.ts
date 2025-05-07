@@ -279,7 +279,7 @@ const getBookedAppointments = async (req: any, res: any) => {
           bookedTimeSlot: appointment.time,
           date: appointment.date,
           duration: "60 minutes",
-          imageUrl: doctor.personalDetails?.imageUrl || "/default-doctor.png",
+          imageUrl: doctor.clinic?.image || "/default-doctor.png",
           status,
           joinIn,
           meetingLink: appointment.meetingLink || null,
@@ -933,6 +933,41 @@ export const getPatientPrescriptions = async (req: Request, res: Response): Prom
     })
   }
 }
+
+export const getPrescriptionById = async (req: Request, res: Response) => {
+  try {
+    const { appointmentId } = req.params;
+    console.log("this is appointmentId in PrescriptionController: ", appointmentId)
+    if (!appointmentId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Appointment ID is required' 
+      });
+    }
+
+    // Find prescription where prescriptionId matches the appointmentId
+    const prescription = await Prescription.findOne({ prescriptionId: appointmentId });
+
+    if (!prescription) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No prescription found for this appointment' 
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: prescription
+    });
+  } catch (error:any) {
+    console.error('Error fetching prescription:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error while fetching prescription',
+      error: error.message 
+    });
+  }
+};
 
 const moodLogging = async (req: any, res: any) => {
   try {

@@ -798,6 +798,7 @@ export const getDetailsForPrescription = async (req: any, res: any) => {
       const {
         doctorName,
         doctorId,
+        doctorSpecialisation,
         patientId,
         patientName,
         patientGender,
@@ -808,7 +809,7 @@ export const getDetailsForPrescription = async (req: any, res: any) => {
       } = req.body;
   
       // Validate required fields
-      if (!doctorName || !doctorId || !patientId || !patientName || !patientGender || !patientAge || !appointmentId || !prescription) {
+      if (!doctorName || !doctorId || !doctorSpecialisation || !patientId || !patientName || !patientGender || !patientAge || !appointmentId || !prescription) {
         res.status(400).json({ success: false, message: 'Missing required fields' });
         return;
       }
@@ -819,6 +820,7 @@ export const getDetailsForPrescription = async (req: any, res: any) => {
         date: date ? new Date(date) : new Date(),
         doctorName,
         doctorId,
+        doctorSpecialisation,
         patientId,
         patientName,
         patientGender,
@@ -850,6 +852,7 @@ export const getDetailsForPrescription = async (req: any, res: any) => {
   export const getReviews = async (req: Request, res: Response) => {
     try {
       const doctorId = req.query.doctorId as string;
+      console.log("this is doctorId from Doctor Section:", doctorId)
       
       // Validate doctorId
       if (!doctorId) {
