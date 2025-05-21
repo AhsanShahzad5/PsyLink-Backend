@@ -141,6 +141,19 @@ io.on("connection",(socket: Socket)=>{
     socket.on('peer:nego:done', ({to , ans})=>{
         io.to(to).emit("peer:nego:final",{from:socket.id, ans })
     })
+
+    socket.on("chat:message", ({ message, roomId }) => {
+        // Broadcast message to everyone in the room except sender
+        socket.to(roomId).emit("chat:message", message);
+      });
+      
+      // Handle file sharing
+      socket.on("chat:file", ({ message, roomId }) => {
+        // Broadcast file message to everyone in the room except sender
+        socket.to(roomId).emit("chat:message", message);
+      });
+
+
 })
 
 
