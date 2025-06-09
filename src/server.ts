@@ -29,14 +29,20 @@ const PORT = process.env.PORT || 8000;
 
 
 
-// Configure CORS options
-const allowedOrigins = ['http://localhost:5173'];
+//Configure CORS options
+ const allowedOrigins = ['http://localhost:5173' , 'https://16f9-39-46-160-60.ngrok-free.app'];
 const corsOptions = {
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
 };
 
+// const corsOptions = {
+//     origin: (origin:any, callback:any) => {
+//       callback(null, true); // Allow all origins (for testing only)
+//     },
+//     credentials: true,
+//   };
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "50mb" }))
 

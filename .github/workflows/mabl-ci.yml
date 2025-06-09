@@ -1,0 +1,25 @@
+name: Run Mabl Tests
+
+on:
+  push:
+    branches:
+      - main  # or your deployment branch
+  workflow_dispatch:  # allow manual trigger too
+
+jobs:
+  run-mabl-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Run Mabl Tests
+        run: |
+          curl -X POST https://api.mabl.com/v1/events/trigger/plan \
+            -H "Authorization: APIKEY ${{ secrets.MABL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "application_id": "Zr4LH1Ab0daP2thoW0uiYA-a",
+              "plan_id": "SRiONDiNeORefRzz4VmAEA-p"
+            }'
