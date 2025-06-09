@@ -34,10 +34,11 @@ const PORT = process.env.PORT || 8000;
 
 
  // add random function to demonstrate change and push code
+const consoleRandom=()=>{
+console.log("random")
+}
 
-//  const allowedOrigins = ['http://localhost:5173' , 'https://16f9-39-46-160-60.ngrok-free.app'];
-//  const allowedOrigins = ['http://localhost:5173' , 'https://16f9-39-46-160-60.ngrok-free.app'];
-
+consoleRandom();
 
 const corsOptions = {
     origin: allowedOrigins,
