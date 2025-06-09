@@ -36,6 +36,10 @@ const PORT = process.env.PORT || 8000;
  // add random function to demonstrate change and push code
 const consoleRandom=()=>{
 console.log("random")
+console.log("random")
+console.log("random")
+console.log("random")
+console.log("random")
 }
 
 consoleRandom();
