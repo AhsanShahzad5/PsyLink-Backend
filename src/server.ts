@@ -41,8 +41,8 @@ console.log("random")
 console.log("random")
 console.log("random")
 console.log("random")
-console.log("random")
-console.log("random")
+console.log("random2222")
+
 }
 
 consoleRandom();
