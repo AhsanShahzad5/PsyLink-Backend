@@ -27,30 +27,52 @@
 #      "environment_id": "YOUR_ENVIRONMENT_ID"
            
 
-name: Run Mabl Tests
+# name: Run Mabl Tests
 
-on:
-  push:
-    branches:
-      - preEval  
-  workflow_dispatch:  # allow manual trigger too
+# on:
+#   push:
+#     branches:
+#       - preEval  
+#   workflow_dispatch:  # allow manual trigger too
+
+# jobs:
+#   run-mabl-tests:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v3
+
+#       - name: Run Mabl Tests
+#         run: |
+#           curl -X POST https://api.mabl.com/executions/v1/plans/run \
+#             -H "Authorization: Bearer ${{ secrets.MABL_API_KEY }}" \
+#             -H "Content-Type: application/json" \
+#             -d '{
+#               "application_id": "Zr4LH1Ab0daP2thoW0uiYA-a",
+#                        "plan_id": "SRiONDiNeORefRzz4VmAEA-p" ,
+#                        "environment_id": "u4soaEoZRm3SHA2pf7iqlg-e"
+
+#              }'
+
+
+on: [push]
+
+name: mabl Simple Example
 
 jobs:
-  run-mabl-tests:
+  test:
+    name: mabl Test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Run Mabl Tests
-        run: |
-          curl -X POST https://api.mabl.com/executions/v1/plans/run \
-            -H "Authorization: Bearer ${{ secrets.MABL_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "application_id": "Zr4LH1Ab0daP2thoW0uiYA-a",
-                       "plan_id": "SRiONDiNeORefRzz4VmAEA-p" ,
-                       "environment_id": "u4soaEoZRm3SHA2pf7iqlg-e"
-
-             }'
+      - name: Functional test deployment
+        id: mabl-test-deployment
+        uses: mablhq/github-run-tests-action@v1
+        env:
+          # Use a "CI/CD Integration" type of mabl API key
+          MABL_API_KEY: ${{ secrets.MABL_API_KEY }}
+        with:
+          application-id: Zr4LH1Ab0daP2thoW0uiYA-a
+          environment-id: u4soaEoZRm3SHA2pf7iqlg-e
