@@ -50,7 +50,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "application_id": "Zr4LH1Ab0daP2thoW0uiYA-a",
-                       "plan_id": "SRiONDiNeORefRzz4VmAEA-p"
+                       "plan_id": "SRiONDiNeORefRzz4VmAEA-p" ,
+                       "environment_id": "u4soaEoZRm3SHA2pf7iqlg-e"
 
              }'
-             
