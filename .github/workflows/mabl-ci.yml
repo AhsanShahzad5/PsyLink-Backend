@@ -3,7 +3,7 @@ name: Run Mabl Tests
 on:
   push:
     branches:
-      - main  # or your deployment branch
+      - preEval  
   workflow_dispatch:  # allow manual trigger too
 
 jobs:
