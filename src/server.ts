@@ -31,6 +31,14 @@ const PORT = process.env.PORT || 8000;
 
 //Configure CORS options
  const allowedOrigins = ['http://localhost:5173' , 'https://16f9-39-46-160-60.ngrok-free.app'];
+
+
+ // add random function to demonstrate change and push code
+
+//  const allowedOrigins = ['http://localhost:5173' , 'https://16f9-39-46-160-60.ngrok-free.app'];
+//  const allowedOrigins = ['http://localhost:5173' , 'https://16f9-39-46-160-60.ngrok-free.app'];
+
+
 const corsOptions = {
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
