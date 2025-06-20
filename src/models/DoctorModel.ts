@@ -40,8 +40,8 @@ const DoctorSchema = new Schema({
         cnicNumber: { type: String, required: false },
         availableHours: [
             {
-                startTime: { type: String, required: false },
-                endTime: { type: String, required: false },
+                startTime: { type: String, required: false, default:'09:00 am' },
+                endTime: { type: String, required: false , default:'09:00 pm'},
             },
         ],
         consultationFee: { type: Number, required: false },
