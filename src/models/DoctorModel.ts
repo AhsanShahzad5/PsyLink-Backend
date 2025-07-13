@@ -92,6 +92,7 @@ const DoctorSchema = new Schema({
         {   
             appointmentId:{ type: String, required: true },
             patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
+            patientName:{type: String, required: false },
             date: { type: String, required: false },
             time: { type: String, required: false },
         },

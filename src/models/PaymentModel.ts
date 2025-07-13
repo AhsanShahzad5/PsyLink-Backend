@@ -46,6 +46,20 @@ const PaymentSchema = new Schema({
   updatedAt: {
     type: Date,
   },
+  isAnonymous: {
+    type: Boolean,
+  },
+  patientName: {
+    type: String,
+    required: true,
+  }
+});
+
+PaymentSchema.pre('save', function(next) {
+  if (this.isAnonymous === true) {
+    this.patientName = "Anonymous";
+  }
+  next();
 });
 
 export default mongoose.model('Payment', PaymentSchema);

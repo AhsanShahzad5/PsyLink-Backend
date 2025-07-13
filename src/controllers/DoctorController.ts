@@ -582,20 +582,21 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
           console.log("Appointment date/time parsed:", appointmentDateTime);
           console.log("Current date:", currentDate);
           console.log("Is future appointment:", appointmentDateTime > currentDate);
-
+          console.log("this is appointment.patientId: ", appointment.patientId)
           // Check if appointment is in the future
           if (appointmentDateTime > currentDate) {
             // Keep valid appointments
             appointmentsToKeep.push(appointment);
             
+
             // Add to upcoming appointments with patient info
             try {
-              let patientName = "Unknown";
+              let patientName = appointment.patientName;
               
               if (appointment.patientId) {
                 // Try to get patient information
                 const patient = await Patient.findOne({ userId: appointment.patientId });
-                if (patient && patient.personalInformation && patient.personalInformation.fullName) {
+                if (!patientName && patient && patient.personalInformation && patient.personalInformation.fullName) {
                   patientName = patient.personalInformation.fullName;
                 } else {
                   // Fall back to User model if patient model doesn't have the name
@@ -609,7 +610,6 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
                 // Convert ObjectId to string to avoid type mismatch
                 const patientIdString = appointment.patientId.toString();
                 const previousRecords = await getPreviousRecords(doctorId, patientIdString);
-                
                 upcomingAppointments.push({
                   appointmentId: appointment.appointmentId,
                   patientId: appointment.patientId,
@@ -640,6 +640,7 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
                 previousRecords: [] // Error occurred, so no previous records
               });
             }
+            console.log('this is doctorId  ', doctorId)
           }
         } catch (appointmentError) {
           // Log error but continue processing other appointments
@@ -680,7 +681,8 @@ const getPreviousRecords = async (doctorId: string, patientId: string) => {
     const previousAppointments = await Appointment.find({
       doctorId: doctorId,
       patientId: patientId,
-      status: { $in: ['completed', 'cancelled'] } // Only include completed or cancelled appointments
+      status: { $in: ['completed', 'cancelled'] }, // Only include completed or cancelled appointments
+      isAnonymous: { $ne: true }
     }).select('appointmentId date time status rating review createdAt').lean();
 
     // Create an array to store the combined records

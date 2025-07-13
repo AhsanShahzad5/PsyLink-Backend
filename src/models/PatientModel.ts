@@ -34,6 +34,7 @@ const PatientSchema = new Schema({
         date: { type: String, required: true },
         time: { type: String, required: true },
         status: { type: String, enum: ['booked', 'confirmed', 'cancelled'], default: 'booked' }, // Status of appointment
+        isAnonymous: { type : Boolean, default : false }
       },
     ],
     previous: [
@@ -41,9 +42,10 @@ const PatientSchema = new Schema({
         doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', required: true },
         date: { type: String, required: true },
         time: { type: String, required: true },
-        status: { type: String, enum: ['completed', 'cancelled'], required: true },
+        status: { type: String, enum: ['completed', 'cancelled', 'missed'], required: true },
         feedback: { type: String, required: false }, // Optional feedback on the appointment
         rating: { type: Number, min: 1, max: 5, required: false }, // Rating for the doctor
+        isAnonymous: { type : Boolean, default : false }
       },
     ],
   },

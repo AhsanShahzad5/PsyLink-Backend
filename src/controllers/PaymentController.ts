@@ -81,7 +81,8 @@ const confirmPayment = async (req: any, res: any) => {
       doctorId,
       appointmentId,
       date,
-      time
+      time,
+      isAnonymous,
     } = req.body;
 
     // Retrieve the payment intent from Stripe to confirm it's completed
@@ -94,6 +95,36 @@ const confirmPayment = async (req: any, res: any) => {
       });
     }
 
+     // Check if patient and doctor exist by matching the userId field
+     let patient = await Patient.findOne({ userId: patientId });
+     const doctor = await Doctor.findOne({ userId: doctorId });
+ 
+     if (!doctor) {
+       return res.status(404).json({ success: false, message: 'Doctor not found' });
+     }
+ 
+     if (!patient) {
+       const user = await User.findById(patientId);
+       if (!user) {
+         return res.status(404).json({ success: false, message: 'Patient not found' });
+       }
+       patient = new Patient({ userId: patientId, email: user.email });
+     }
+ 
+     // Get doctor and patient names for appointment record
+     const userPatient = await User.findById(patientId);
+    let patientName;
+
+     // Set patientName based on isAnonymous flag
+     if (isAnonymous === true) {
+      patientName = "Anonymous";
+    } else {
+      patientName = patient.personalInformation?.fullName || userPatient.name || userPatient.email;
+    }
+ 
+     const userDoctor = await User.findById(doctor.userId);
+     const doctorName = doctor.personalDetails?.fullName || userDoctor.name || userDoctor.email;
+
     // Create a new payment record in your database
     const payment = new Payment({
       amount: paymentIntent.amount / 100, // Convert cents back to dollars
@@ -104,6 +135,8 @@ const confirmPayment = async (req: any, res: any) => {
       status: 'completed',
       date,
       time,
+      isAnonymous : isAnonymous,
+      patientName,
       createdAt: new Date(),
     });
 
@@ -113,28 +146,7 @@ const confirmPayment = async (req: any, res: any) => {
     // const doctor = await Doctor.findById(doctorId);
     // let patient = await Patient.findById(patientId);
 
-    // Check if patient and doctor exist by matching the userId field
-    let patient = await Patient.findOne({ userId: patientId });
-    const doctor = await Doctor.findOne({ userId: doctorId });
-
-    if (!doctor) {
-      return res.status(404).json({ success: false, message: 'Doctor not found' });
-    }
-
-    if (!patient) {
-      const user = await User.findById(patientId);
-      if (!user) {
-        return res.status(404).json({ success: false, message: 'Patient not found' });
-      }
-      patient = new Patient({ userId: patientId, email: user.email });
-    }
-
-    // Get doctor and patient names for appointment record
-    const userPatient = await User.findById(patientId);
-    const patientName = patient.personalInformation?.fullName || userPatient.name || userPatient.email;
-
-    const userDoctor = await User.findById(doctor.userId);
-    const doctorName = doctor.personalDetails?.fullName || userDoctor.name || userDoctor.email;
+   
 
     // Create the appointment record
     const appointment = new Appointment({
@@ -147,7 +159,8 @@ const confirmPayment = async (req: any, res: any) => {
       doctorName,
       status: 'confirmed',
       paymentStatus: 'paid',
-      paymentId: payment._id
+      paymentId: payment._id,
+      isAnonymous : isAnonymous,
     });
 
     await appointment.save();
@@ -156,6 +169,7 @@ const confirmPayment = async (req: any, res: any) => {
     doctor.appointments.push({
       appointmentId,
       patientId,
+      patientName,
       date,
       time,
       PaymentStatus: 'done'
@@ -177,7 +191,8 @@ const confirmPayment = async (req: any, res: any) => {
       doctorId,
       date,
       time,
-      status: 'confirmed'
+      status: 'confirmed',
+      isAnonymous,
     });
 
     await patient.save();

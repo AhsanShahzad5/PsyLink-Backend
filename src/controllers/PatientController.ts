@@ -297,6 +297,7 @@ const getBookedAppointments = async (req: any, res: any) => {
   }
 };
 
+
 export const getHistoryAppointments = async (req: any, res: any) => {
   try {
     // Get the current user's ID from the request
@@ -309,11 +310,105 @@ export const getHistoryAppointments = async (req: any, res: any) => {
       return res.status(404).json({ message: "Patient not found" });
     }
 
+    // Helper function to check if appointment time has passed
+    const isAppointmentMissed = (appointmentDate: string, appointmentTime: string) => {
+      try {
+        // Parse the date (assuming format: "YYYY-MM-DD" or "DD-MM-YYYY")
+        const dateParts = appointmentDate.includes('-') ? appointmentDate.split('-') : appointmentDate.split('/');
+        let parsedDate;
+        
+        // Handle different date formats
+        if (dateParts[0].length === 4) {
+          // YYYY-MM-DD format
+          parsedDate = new Date(`${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`);
+        } else {
+          // DD-MM-YYYY or MM-DD-YYYY format (adjust as needed)
+          parsedDate = new Date(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
+        }
+
+        // Parse the time (assuming format: "HH:MM AM/PM" or "HH:MM")
+        const timeStr = appointmentTime.toLowerCase();
+        let hours, minutes;
+        
+        if (timeStr.includes('am') || timeStr.includes('pm')) {
+          const timeParts = timeStr.replace(/[ap]m/g, '').trim().split(':');
+          hours = parseInt(timeParts[0]);
+          minutes = parseInt(timeParts[1] || '0');
+          
+          if (timeStr.includes('pm') && hours !== 12) {
+            hours += 12;
+          } else if (timeStr.includes('am') && hours === 12) {
+            hours = 0;
+          }
+        } else {
+          const timeParts = timeStr.split(':');
+          hours = parseInt(timeParts[0]);
+          minutes = parseInt(timeParts[1] || '0');
+        }
+
+        // Create the full appointment datetime
+        const appointmentDateTime = new Date(parsedDate);
+        appointmentDateTime.setHours(hours, minutes, 0, 0);
+
+        // Compare with current time
+        const currentDateTime = new Date();
+        return appointmentDateTime < currentDateTime;
+      } catch (error) {
+        console.error('Error parsing appointment date/time:', error);
+        return false;
+      }
+    };
+
+    // Check and update missed appointments in upcoming appointments
+    const upcomingAppointments = patient.appointments?.upcoming || [];
+    const updatedUpcoming: any[] = [];
+    const missedAppointments: any[] = [];
+
+    for (const upcomingAppointment of upcomingAppointments) {
+      if (isAppointmentMissed(upcomingAppointment.date, upcomingAppointment.time)) {
+        // Mark as missed and move to previous appointments
+        const missedAppointment = {
+          ...upcomingAppointment.toObject(),
+          status: 'missed'
+        };
+        missedAppointments.push(missedAppointment);
+
+        // Update the main Appointment model
+        await Appointment.findOneAndUpdate(
+          { appointmentId: upcomingAppointment.appointmentId },
+          { status: 'missed' }
+        );
+      } else {
+        updatedUpcoming.push(upcomingAppointment);
+      }
+    }
+
+    // Update patient's appointments if there are missed appointments
+    if (missedAppointments.length > 0) {
+      await Patient.findOneAndUpdate(
+        { userId },
+        {
+          $set: {
+            'appointments.upcoming': updatedUpcoming
+          },
+          $push: {
+            'appointments.previous': { $each: missedAppointments }
+          }
+        }
+      );
+    }
+
+    // Get the final patient document to ensure we have the latest data
+    const finalPatient = await Patient.findOne({ userId });
+    if (!finalPatient) {
+      return res.status(404).json({ message: "Patient not found after update" });
+    }
+
     // Create a list to store the history appointments with additional data
     const historyAppointmentsWithDetails = [];
 
     // Process each previous appointment if they exist
-    const previousAppointments = patient.appointments?.previous || [];
+    const previousAppointments = finalPatient.appointments?.previous || [];
     for (const prevAppointment of previousAppointments) {
       try {
         // Find the appointment details in the Appointment model
@@ -335,6 +430,7 @@ export const getHistoryAppointments = async (req: any, res: any) => {
             date: prevAppointment.date,
             rating: appointmentDetails.rating || 0,
             review: appointmentDetails.review || "",
+            status: prevAppointment.status,
             imageUrl: doctor.clinic?.image || "/src/assets/patient/doctor/doctor.png", // Default image if not available
           };
 
@@ -347,11 +443,12 @@ export const getHistoryAppointments = async (req: any, res: any) => {
     }
 
     return res.status(200).json(historyAppointmentsWithDetails);
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("Error fetching history appointments:", error);
     return res.status(500).json({ message: "Failed to fetch history appointments", error: error.message });
   }
 };
+
 
 
 const convertTo24HourFormat = (time: string) => {

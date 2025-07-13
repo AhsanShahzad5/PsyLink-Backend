@@ -34,7 +34,7 @@ const AppointmentSchema = new Schema({
   },
   status: {
     type: String,
-    enum: ['booked', 'cancelled', 'completed' , 'confirmed'],
+    enum: ['booked', 'cancelled', 'completed', 'confirmed','missed'],
     default: 'booked'
   },
   rating: {
@@ -48,7 +48,19 @@ const AppointmentSchema = new Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  isAnonymous: {
+    type: Boolean,
+    default: false
   }
+});
+
+// Middleware to handle anonymous patient
+AppointmentSchema.pre('save', function (next) {
+  if (this.isAnonymous) {
+    this.patientName = 'Anonymous';
+  }
+  next();
 });
 
 export default mongoose.model('Appointment', AppointmentSchema);
