@@ -583,18 +583,19 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
           console.log("Current date:", currentDate);
           console.log("Is future appointment:", appointmentDateTime > currentDate);
           console.log("this is appointment.patientId: ", appointment.patientId)
+          console.log("this is appointment.patientName: ", appointment.patientName)
+          
           // Check if appointment is in the future
           if (appointmentDateTime > currentDate) {
             // Keep valid appointments
             appointmentsToKeep.push(appointment);
             
-
             // Add to upcoming appointments with patient info
             try {
               let patientName = appointment.patientName;
               
               if (appointment.patientId) {
-                // Try to get patient information
+               // Try to get patient information
                 const patient = await Patient.findOne({ userId: appointment.patientId });
                 if (!patientName && patient && patient.personalInformation && patient.personalInformation.fullName) {
                   patientName = patient.personalInformation.fullName;
@@ -609,13 +610,21 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
                 // Get previous appointments and prescriptions for this patient and doctor
                 // Convert ObjectId to string to avoid type mismatch
                 const patientIdString = appointment.patientId.toString();
-                const previousRecords = await getPreviousRecords(doctorId, patientIdString);
+                
+                // Fetch the actual appointment document to get the isAnonymous value
+                const appointmentDoc = await Appointment.findOne({ appointmentId: appointment.appointmentId });
+                const isAnonymous = appointmentDoc?.isAnonymous ?? false;
+                
+                console.log(`Appointment ${appointment.appointmentId} isAnonymous:`, isAnonymous);
+                
+                const previousRecords = await getPreviousRecords(doctorId, patientIdString, isAnonymous);
+                
                 upcomingAppointments.push({
                   appointmentId: appointment.appointmentId,
                   patientId: appointment.patientId,
                   date: appointment.date,
                   time: appointment.time,
-                  patient: patientName,
+                  patient: appointment.patientName || patientName,
                   previousRecords // Include previous records for this patient
                 });
               } else {
@@ -624,7 +633,7 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
                   patientId: appointment.patientId,
                   date: appointment.date,
                   time: appointment.time,
-                  patient: patientName,
+                  patient: "Anonymous",
                   previousRecords: [] // No patient ID, so no previous records
                 });
               }
@@ -674,16 +683,28 @@ export const getUpcomingAppointments = async (req: Request, res: Response) => {
 };
 
 
-// Fixed getPreviousRecords function - main correction is in ObjectId handling
-const getPreviousRecords = async (doctorId: string, patientId: string) => {
+// Updated getPreviousRecords function with conditional queries based on isAnonymous
+const getPreviousRecords = async (doctorId: string, patientId: string, isAnonymous: boolean) => {
   try {
-    // Use string IDs directly without trying to convert to ObjectId
-    const previousAppointments = await Appointment.find({
-      doctorId: doctorId,
-      patientId: patientId,
-      status: { $in: ['completed', 'cancelled'] }, // Only include completed or cancelled appointments
-      isAnonymous: { $ne: true }
-    }).select('appointmentId date time status rating review createdAt').lean();
+    let previousAppointments;
+    
+    if (isAnonymous) {
+      // If the current appointment is anonymous, only get previous anonymous appointments
+      previousAppointments = await Appointment.find({
+        doctorId: doctorId,
+        patientId: patientId,
+        status: { $in: ['completed', 'cancelled'] }, // Only include completed or cancelled appointments
+        isAnonymous: true // Only get anonymous appointments
+      }).select('appointmentId date time status rating review createdAt').lean();
+    } else {
+      // For non-anonymous appointments, get previous records but exclude anonymous ones
+      previousAppointments = await Appointment.find({
+        doctorId: doctorId,
+        patientId: patientId,
+        status: { $in: ['completed', 'cancelled'] }, // Only include completed or cancelled appointments
+        isAnonymous: { $ne: true } // Exclude anonymous appointments from previous records
+      }).select('appointmentId date time status rating review createdAt').lean();
+    }
 
     // Create an array to store the combined records
     const combinedRecords = [];
@@ -730,7 +751,6 @@ const getPreviousRecords = async (doctorId: string, patientId: string) => {
     return []; // Return empty array if there's an error
   }
 };
-
   
 
 export const getDetailsForPrescription = async (req: any, res: any) => {
