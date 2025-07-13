@@ -30,7 +30,89 @@ const getDoctorDetails = async (req: any, res: any) => {
     }
 };
 
+// get dr details by id
+// get dr details by id
+export const getDoctorDetailsById = async (req:any, res:any) => {
+  try {
+    const { doctorId } = req.params;
 
+    // Fetch doctor by ID
+    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
+      return res.status(400).json({ message: 'Invalid Doctor ID format' });
+    }
+    const doctor = await Doctor.findOne({ userId: doctorId }).populate('userId', '-password');
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor not found'
+      });
+    }
+
+    // Get today's date in YYYY-MM-DD format for comparison
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+    // Filter availability to only show dates with available slots
+    const availableAppointments = doctor.availability
+      ?.map(day => ({
+        date: day.date,
+        // Only include slots that are available
+        slots: day.slots?.filter(slot => slot.status === 'available') || []
+      }))
+      // Only include dates that have at least one available slot
+      .filter(day => day.slots.length > 0)
+      // Only include dates that are today or in the future
+      .filter(day => day.date && day.date >= todayString) || [];
+
+    // Extract required data for doctor card - matching your schema structure
+    const doctorCard = {
+      id: doctor._id.toString(), // Convert ObjectId to string
+      userId: doctor.userId.toString(), // Convert ObjectId to string
+      fullName: doctor.clinic?.fullName || doctor.personalDetails?.fullName || '',
+      image: doctor.clinic?.image || doctor.personalDetails?.image || '',
+      consultationFee: doctor.clinic?.consultationFee || doctor.professionalDetails?.consultationFee || 0,
+      city: doctor.clinic?.city || doctor.personalDetails?.city || '',
+      country: doctor.clinic?.country || doctor.personalDetails?.country || '',
+      description: doctor.clinic?.description || doctor.personalDetails?.description || '',
+      specialisation: doctor.clinic?.specialisation || doctor.professionalDetails?.specialisation || '',
+      educationBackground: doctor.clinic?.educationBackground || doctor.professionalDetails?.educationalBackground || '',
+      startTime: doctor.clinic?.startTime || doctor.professionalDetails?.availableHours?.[0]?.startTime || '09:00',
+      endTime: doctor.clinic?.endTime || doctor.professionalDetails?.availableHours?.[0]?.endTime || '21:00',
+      
+      // Use filtered availability array (only available slots and dates with available slots)
+      appointments: availableAppointments,
+      
+      // Extract only available slots for easier access
+      slots: availableAppointments.flatMap(day => 
+        day.slots.map(slot => ({
+          date: day.date,
+          time: slot.time,
+          status: slot.status, // This will always be 'available' now
+          bookedBy: slot.bookedBy // This should be undefined for available slots
+        }))
+      ),
+      
+      // Additional useful data
+      rating: doctor.rating || { TotalStars: 0, TotalReviews: 0 },
+      status: doctor.status || 'pending'
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: 'Doctor details fetched successfully',
+      doctorCard: doctorCard
+    });
+
+  } catch (error:any) {
+    console.error('Error fetching doctor card data:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
 
 const submitPersonalDetails = async (req: any, res: any) => {
     try {

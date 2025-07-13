@@ -11,7 +11,7 @@ import Appointment from '../models/AppointmentModel'
 import Prescription from '../models/PrescriptionModel';
 import { v2 as cloudinary } from "cloudinary";
 import mongoose from 'mongoose';
-
+const sendEmail = require("../utils/sendEmail");
 
 const test = (req: Request, res: Response) => {
   res.json({ message: 'welcome to patient' });
@@ -23,24 +23,24 @@ const getVerifiedDoctors = async (req: any, res: any) => {
     // Get current date without time component
     const currentDate = new Date();
     const todayString = currentDate.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-    
+
     // Find verified doctors
     const verifiedDoctors = await Doctor.find({ status: 'verified' })
       .select('clinic availability userId rating')
       .lean();
-    
+
     // Filter out past dates and unavailable slots and calculate average rating
     const filteredDoctors = verifiedDoctors.map(doctor => {
       // Calculate average rating
-      const avgRating = doctor.rating && 
-                       doctor.rating.TotalReviews !== undefined && 
-                       doctor.rating.TotalReviews !== null && 
-                       doctor.rating.TotalReviews > 0 && 
-                       doctor.rating.TotalStars !== undefined && 
-                       doctor.rating.TotalStars !== null
-        ? (doctor.rating.TotalStars / doctor.rating.TotalReviews).toFixed(1) 
+      const avgRating = doctor.rating &&
+        doctor.rating.TotalReviews !== undefined &&
+        doctor.rating.TotalReviews !== null &&
+        doctor.rating.TotalReviews > 0 &&
+        doctor.rating.TotalStars !== undefined &&
+        doctor.rating.TotalStars !== null
+        ? (doctor.rating.TotalStars / doctor.rating.TotalReviews).toFixed(1)
         : "0.0";
-      
+
       return {
         ...doctor,
         avgRating: avgRating,
@@ -59,7 +59,7 @@ const getVerifiedDoctors = async (req: any, res: any) => {
           .filter(day => day.slots.length > 0)
       };
     });
-    
+
     res.status(200).json(filteredDoctors);
   } catch (error) {
     console.error("Error in getVerifiedDoctors:", error);
@@ -69,96 +69,99 @@ const getVerifiedDoctors = async (req: any, res: any) => {
 
 const bookAppointment = async (req: any, res: any) => {
   try {
-    const { doctorId, date, time } = req.body;
+    const { doctorId, date, time , patientId} = req.body;
     const userId = req.user._id;
 
-        // Check if user is a patient
-        if (req.user.role.toLowerCase() !== 'patient') {
-            return res.status(403).json({ message: 'Only patient can book appointment' });
-        }
-        
-         // Find doctor
-        const doctor = await Doctor.findOne({_id: doctorId});
-
-        if (!doctor) {
-            return res.status(404).json({ message: 'Doctor not found' });
-        }
-
-        //check availability of doc
-        const availability = doctor.availability.find(avail => avail.date === date);
-        if (!availability) {
-            return res.status(404).json({ message: 'No availability found for the given date' });
-        }
-
-        //check slot availability
-        const slot = availability.slots.find(slot => slot.time === time);
-        if (!slot || slot.status !== 'available') {
-            return res.status(400).json({ message: 'Slot is either not available or already taken' });
-        }
-
-        //mark as booked
-        slot.status = 'booked';
-        slot.bookedBy = userId;
-
-
-        //find kreyga patient vrna create usi waqt
-        let patient = await Patient.findOne({ userId });
-        if (!patient) {
-            const userEmail = req.user.email; 
-           patient = new Patient({ userId, email: userEmail });
-        }
-
-        // get doc and patient names
-        const user = await User.findById(userId);
-        const patientName = patient.personalInformation?.fullName || user.name || user.email;
-        
-        const doctorUser = await User.findById(doctor.userId);
-        const doctorName = doctor.personalDetails?.fullName || doctorUser.name || doctorUser.email;
-
-        //create the appointmentId
-        const appointmentId = uuidv4();
-
-        //added console log
-        console.log("This is appointmentId", appointmentId);
-
-        //creates new appointment and saves in db
-        const appointment = new Appointment({
-          appointmentId,
-          date,
-          time,
-          patientId: userId,
-          patientName,
-          doctorId: doctor.userId,
-          //doctorId: doctorId,
-          doctorName,
-          status: 'booked',
-      });
-      
-      await appointment.save();
-
-
-         //update docs appointment list
-         doctor.appointments.push({ appointmentId ,patientId: userId, date, time });
-         await doctor.save();
-
-        // Add to patient's upcoming appointments
-        patient?.appointments?.upcoming.push({
-            appointmentId,
-            doctorId,
-            date,
-            time,
-            status: 'booked',
-        });
-        await patient.save();
-
-        res.status(200).json({ message: 'Appointment booked successfully' });
-    } catch (error) {
-        console.error('Error in bookAppointment:', error);
-        res.status(500).json({ message: 'An error occurred while booking the appointment' });
+    // Check if user is a patient
+    if (req.user.role.toLowerCase() !== 'patient') {
+      return res.status(403).json({ message: 'Only patient can book appointment' });
     }
 
-  
+    // const doctor = await Doctor.findOne({ userId: doctorId }).populate('userId', '-password');
+
+    // Find doctor
+    const doctor = await Doctor.findOne({ userId: doctorId });
+ //find kreyga patient vrna create usi waqt
+
+ let patient = await Patient.findOne({  userId: patientId });
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    //check availability of doc
+    const availability = doctor.availability.find(avail => avail.date === date);
+    if (!availability) {
+      return res.status(404).json({ message: 'No availability found for the given date' });
+    }
+
+    //check slot availability
+    const slot = availability.slots.find(slot => slot.time === time);
+    if (!slot || slot.status !== 'available') {
+      return res.status(400).json({ message: 'Slot is either not available or already taken' });
+    }
+
+    //mark as booked
+    slot.status = 'booked';
+    slot.bookedBy = userId;
+
+
+   
+    if (!patient) {
+      const userEmail = req.user.email;
+      patient = new Patient({ userId, email: userEmail });
+    }
+
+    // get doc and patient names
+    const user = await User.findById(userId);
+    const patientName = patient.personalInformation?.fullName || user.name || user.email;
+
+    const doctorUser = await User.findById(doctor.userId);
+    const doctorName = doctor.personalDetails?.fullName || doctorUser.name || doctorUser.email;
+
+    //create the appointmentId
+    const appointmentId = uuidv4();
+
+    //added console log
+    console.log("This is appointmentId", appointmentId);
+
+    //creates new appointment and saves in db
+    const appointment = new Appointment({
+      appointmentId,
+      date,
+      time,
+      patientId: userId,
+      patientName,
+      doctorId: doctor.userId,
+      //doctorId: doctorId,
+      doctorName,
+      status: 'booked',
+    });
+
+    await appointment.save();
+
+
+    //update docs appointment list
+    doctor.appointments.push({ appointmentId, patientId: userId, date, time });
+    await doctor.save();
+
+    // Add to patient's upcoming appointments
+    patient?.appointments?.upcoming.push({
+      appointmentId,
+      doctorId,
+      date,
+      time,
+      status: 'booked',
+    });
+    await patient.save();
+
+    res.status(200).json({ message: 'Appointment booked successfully' });
+  } catch (error) {
+    console.error('Error in bookAppointment: ', error);
+    res.status(500).json({ message: 'An error occurred while booking the appointment' });
   }
+
+
+}
 
 // abbadv old
 // const getBookedAppointments = async (req: any, res: any) => {
@@ -235,11 +238,11 @@ const getBookedAppointments = async (req: any, res: any) => {
 
     // Extract doctorIds from appointments and find the corresponding doctors
     const doctorUserIds = patient.appointments.upcoming.map((appt: any) => appt.doctorId);
-    
+
     // Find doctors by their userIds instead of _id
     //     const doctors = await Doctor.find({ _id: { $in: doctorIds } }).lean();
     const doctors = await Doctor.find({ userId: { $in: doctorUserIds } }).lean();
-    
+
     // Create a lookup map using userId instead of _id
     const doctorMap = doctors.reduce((acc: any, doctor: any) => {
       acc[doctor.userId.toString()] = doctor;
@@ -253,7 +256,7 @@ const getBookedAppointments = async (req: any, res: any) => {
         console.log(`Doctor not found for doctorId: ${appointment.doctorId}`);
         return null;
       }
-      
+
       try {
         console.log("we are in try block");
         const [startTime] = appointment.time.split("-").map((t: any) => t.trim());
@@ -317,8 +320,8 @@ export const getHistoryAppointments = async (req: any, res: any) => {
     for (const prevAppointment of previousAppointments) {
       try {
         // Find the appointment details in the Appointment model
-        const appointmentDetails = await Appointment.findOne({ 
-          appointmentId: prevAppointment.appointmentId 
+        const appointmentDetails = await Appointment.findOne({
+          appointmentId: prevAppointment.appointmentId
         });
 
         // Find the doctor details to get the image
@@ -347,7 +350,7 @@ export const getHistoryAppointments = async (req: any, res: any) => {
     }
 
     return res.status(200).json(historyAppointmentsWithDetails);
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("Error fetching history appointments:", error);
     return res.status(500).json({ message: "Failed to fetch history appointments", error: error.message });
   }
@@ -497,16 +500,16 @@ export const applyProgram = async (req: any, res: any) => {
 export const getOngoingPrograms = async (req: any, res: any) => {
   try {
     const currentDate = new Date();
-    
+
     // Find the current user and their ongoing programs
     const userId = req.user._id;
-    
+
     const patient = await Patient.findOne({ userId });
     if (!patient) return res.status(404).send("Patient not found");
-    
+
     // Check programs with end dates in the past and move them to previous
     const programsToMove: number[] = [];
-    
+
     patient.programs!.applied.forEach((program, index) => {
       const endDate = new Date(program.endDate);
       console.log('this is currentDate :', currentDate)
@@ -517,45 +520,45 @@ export const getOngoingPrograms = async (req: any, res: any) => {
         patient.programs!.previous.push(program);
       }
     });
-    
+
     // Remove moved programs from applied array (in reverse order to avoid index issues)
     for (let i = programsToMove.length - 1; i >= 0; i--) {
       patient.programs!.applied.splice(programsToMove[i], 1);
     }
-    
+
     // Save the patient document with the updated arrays
     await patient.save();
-    
+
     // Filter for ongoing programs where current date falls within program dates
     const ongoingPrograms = patient.programs!.applied.filter(program => {
       const startDate = new Date(program.startDate);
       const endDate = new Date(program.endDate);
       return currentDate >= startDate && currentDate <= endDate;
     });
-    
+
     if (ongoingPrograms.length === 0) {
       return res.status(200).json({
         message: "No ongoing programs found",
         programs: []
       });
     }
-    
+
     // For each ongoing program, find today's tasks
     const programsWithTodaysTasks = ongoingPrograms.map(program => {
       // Convert dates to string format for comparison (YYYY-MM-DD)
       const todayDateString = currentDate.toISOString().split('T')[0];
-      
+
       // Find today's daily progress
       const todayProgress = program.dailyProgress.find(day => {
         const dayDateString = new Date(day.date).toISOString().split('T')[0];
         return dayDateString === todayDateString;
       });
-      
+
       // Calculate today's completed tasks instead of all days
       const tasksCompletedToday = todayProgress
         ? todayProgress.tasks.filter(task => task.completed).length
         : 0;
-      
+
       return {
         programId: program._id,
         planName: program.planName,
@@ -570,7 +573,7 @@ export const getOngoingPrograms = async (req: any, res: any) => {
         totalTasks: todayProgress ? todayProgress.tasks.length : 0
       };
     });
-    
+
     return res.status(200).json({
       programs: programsWithTodaysTasks
     });
@@ -591,22 +594,22 @@ export const getPreviousPrograms = async (req: any, res: any) => {
   try {
     // Get the current user ID from the authenticated request
     const userId = req.user?._id;
-    
+
     if (!userId) {
       return res.status(401).json({
         message: "User not authenticated"
       });
     }
-    
+
     // Find the patient with the given userId
     const patient = await Patient.findOne({ userId });
-    
+
     if (!patient) {
       return res.status(404).json({
         message: "Patient not found"
       });
     }
-    
+
     // Check if there are any previous programs
     if (!patient.programs || !patient.programs.previous || patient.programs.previous.length === 0) {
       return res.status(200).json({
@@ -614,23 +617,23 @@ export const getPreviousPrograms = async (req: any, res: any) => {
         programs: []
       });
     }
-    
+
     // Map the previous programs to a more readable format
     const formattedPreviousPrograms = patient.programs.previous.map(program => {
       // Calculate overall task completion statistics
       let totalTasks = 0;
       let completedTasks = 0;
-      
+
       program.dailyProgress.forEach(day => {
         totalTasks += day.tasks.length;
         completedTasks += day.tasks.filter(task => task.completed).length;
       });
-      
+
       // Calculate completion percentage
-      const completionPercentage = totalTasks > 0 
+      const completionPercentage = totalTasks > 0
         ? Math.round((completedTasks / totalTasks) * 100)
         : 0;
-      
+
       return {
         programId: program._id,
         planName: program.planName,
@@ -642,16 +645,16 @@ export const getPreviousPrograms = async (req: any, res: any) => {
           completedTasks,
           completionPercentage
         },
-        dailyProgress:program.dailyProgress
+        dailyProgress: program.dailyProgress
         // You can add more fields here if needed
       };
     });
-    
+
     // Sort programs by end date (most recent first)
-    formattedPreviousPrograms.sort((a, b) => 
+    formattedPreviousPrograms.sort((a, b) =>
       new Date(b.endDate).getTime() - new Date(a.endDate).getTime()
     );
-    
+
     return res.status(200).json({
       message: "Previous programs retrieved successfully",
       count: formattedPreviousPrograms.length,
@@ -665,9 +668,9 @@ export const getPreviousPrograms = async (req: any, res: any) => {
         error: error.message,
       });
     }
-    return res.status(500).json({ 
-      message: "Internal server error", 
-      error: "Unknown error" 
+    return res.status(500).json({
+      message: "Internal server error",
+      error: "Unknown error"
     });
   }
 };
@@ -845,7 +848,7 @@ const updatePatientPersonalDetails = async (req: any, res: any) => {
       return res.status(404).json({ message: 'Patient not found. Please complete registration first.' });
     }
 
-   
+
     patient.personalInformation = {
       ...patient.personalInformation, // Preserve existing fields not being updated
       fullName,
@@ -939,9 +942,9 @@ export const getPrescriptionById = async (req: Request, res: Response) => {
     const { appointmentId } = req.params;
     console.log("this is appointmentId in PrescriptionController: ", appointmentId)
     if (!appointmentId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Appointment ID is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Appointment ID is required'
       });
     }
 
@@ -949,9 +952,9 @@ export const getPrescriptionById = async (req: Request, res: Response) => {
     const prescription = await Prescription.findOne({ prescriptionId: appointmentId });
 
     if (!prescription) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'No prescription found for this appointment' 
+      return res.status(404).json({
+        success: false,
+        message: 'No prescription found for this appointment'
       });
     }
 
@@ -959,12 +962,12 @@ export const getPrescriptionById = async (req: Request, res: Response) => {
       success: true,
       data: prescription
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error fetching prescription:', error);
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: 'Server error while fetching prescription',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -1126,7 +1129,7 @@ const getMoodsForLast15Days = async (req: any, res: any) => {
     // Generate all dates in the range in descending order
     const dateRange = [];
     const currentDate = new Date(endDate);
-    
+
     while (currentDate >= startDate) {
       dateRange.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() - 1);
@@ -1143,7 +1146,7 @@ const getMoodsForLast15Days = async (req: any, res: any) => {
       return {
         date: dateString,
         mood: matchingEntry ? matchingEntry.mood : null
-        
+
       };
     });
 
@@ -1156,10 +1159,10 @@ const getMoodsForLast15Days = async (req: any, res: any) => {
           totalDays: 15,
           daysWithMoodLogged: moodEntries.length
         }
-      } ,
+      },
       patientName: patient.personalInformation?.fullName || 'Ahsan shahzad', // Replace with actual patient name field
       patientGender: patient.personalInformation?.gender || 'Male', // Replace with actual patient sex field
-      patientAge: patient.personalInformation?.age || 20, 
+      patientAge: patient.personalInformation?.age || 20,
     });
   } catch (error) {
     console.error('Error getting mood history:', error);
@@ -1190,41 +1193,41 @@ export const saveReview = async (req: any, res: any) => {
     // Update the appointment with rating and review
     appointment.rating = rating;
     appointment.review = review;
-    
+
     // Update appointment status to completed if not already
     if (appointment.status !== 'completed') {
       appointment.status = 'completed';
     }
-    
+
     await appointment.save();
 
     // Find the doctor regardless of whether there's a private review
     const doctor = await Doctor.findOne({ userId: appointment.doctorId });
-      
+
     if (!doctor) {
       return res.status(404).json({ message: 'Doctor not found' });
     }
-    
+
     // Update TotalStars and TotalReviews in doctor's rating
     if (!doctor.rating) {
       doctor.rating = { TotalStars: 0, TotalReviews: 0 };
     }
-    
+
     // Safely access and update the rating fields
     doctor.rating.TotalStars = (doctor.rating.TotalStars || 0) + rating; // Add the rating value to TotalStars
     doctor.rating.TotalReviews = (doctor.rating.TotalReviews || 0) + 1; // Increment TotalReviews by 1
-    
+
     // Remove the appointment from doctor's appointments array
     if (doctor.appointments && doctor.appointments.length > 0) {
       const appointmentIndex = doctor.appointments.findIndex(
         appt => appt.appointmentId === appointmentId
       );
-      
+
       if (appointmentIndex >= 0) {
         doctor.appointments.splice(appointmentIndex, 1);
       }
     }
-    
+
     // Add private review to doctor if provided
     if (privateReview && privateReview.trim() !== '') {
       doctor.privateReviews = doctor.privateReviews || [];
@@ -1234,19 +1237,19 @@ export const saveReview = async (req: any, res: any) => {
         privateReview
       });
     }
-    
+
     await doctor.save();
 
     // Find the patient and update appointment records
     const patient = await Patient.findOne({ userId });
-    
+
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
 
     // Initialize arrays if they don't exist
     // patient.appointments = patient.appointments || { upcoming: [], previous: [] };
-    
+
     // Find the appointment in the upcoming array
     const upcomingIndex = patient.appointments?.upcoming?.findIndex(
       upcomingAppt => upcomingAppt.appointmentId === appointmentId
@@ -1255,7 +1258,7 @@ export const saveReview = async (req: any, res: any) => {
     // If found in upcoming array
     if (upcomingIndex !== undefined && upcomingIndex >= 0 && patient.appointments?.upcoming) {
       const upcomingAppointment = patient.appointments?.upcoming[upcomingIndex];
-      
+
       // Create entry for previous appointments with rating and review
       const previousAppointment = {
         appointmentId: upcomingAppointment.appointmentId,
@@ -1270,10 +1273,10 @@ export const saveReview = async (req: any, res: any) => {
       // Add to previous appointments array
       patient.appointments.previous = patient.appointments?.previous || [];
       patient.appointments.previous.push(previousAppointment);
-      
+
       // Remove from upcoming appointments array
       patient.appointments?.upcoming.splice(upcomingIndex, 1);
-      
+
       // Save patient changes
       await patient.save();
     } else {
@@ -1282,24 +1285,24 @@ export const saveReview = async (req: any, res: any) => {
 
     console.log("Review saved and appointment moved to history successfully");
     return res.status(200).json({ message: 'Review saved successfully' });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error saving review:', error);
     return res.status(500).json({ message: 'Failed to save review', error: error.message });
   }
 };
 // Create and save a new mood progress report
-const createMoodProgressReport = async (req:any, res:any) => {
+const createMoodProgressReport = async (req: any, res: any) => {
   try {
     const userId = req.user._id;
-    const { 
+    const {
       //patientId, 
-      medicines, 
-      moodData, 
-      summary, 
-      daysGoingWell, 
-      daysGoingBad, 
-      daysWithNoMood, 
-      moodAvgPercentage 
+      medicines,
+      moodData,
+      summary,
+      daysGoingWell,
+      daysGoingBad,
+      daysWithNoMood,
+      moodAvgPercentage
     } = req.body;
 
     // Find the patient to get their details
@@ -1307,7 +1310,7 @@ const createMoodProgressReport = async (req:any, res:any) => {
 
     const patient = await Patient.findOne({ userId: userId });
 
-    
+
     if (!patient) {
       return res.status(404).json({
         success: false,
@@ -1317,7 +1320,7 @@ const createMoodProgressReport = async (req:any, res:any) => {
 
     // Get user info for verification
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -1368,7 +1371,7 @@ const createMoodProgressReport = async (req:any, res:any) => {
         generatedAt: savedReport.createdAt
       }
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error creating mood progress report:', error);
     return res.status(500).json({
       success: false,
@@ -1379,7 +1382,7 @@ const createMoodProgressReport = async (req:any, res:any) => {
 };
 
 // Get all reports for a specific patient
-const getPatientReports = async (req:any, res:any) => {
+const getPatientReports = async (req: any, res: any) => {
   try {
     const userId = req.user._id;
     const patient = await Patient.findOne({ userId: userId });
@@ -1391,16 +1394,16 @@ const getPatientReports = async (req:any, res:any) => {
     }
     const reports = await MoodProgressReport.find({ userId })
       .sort({ createdAt: -1 }); // Newest first
-    
+
     return res.status(200).json({
       success: true,
       message: 'Patient reports retrieved successfully',
-      data: reports ,
+      data: reports,
       patientName: patient.personalInformation?.fullName || 'Ahsan shahzad', // Replace with actual patient name field
       patientGender: patient.personalInformation?.gender || 'Male', // Replace with actual patient sex field
       patientAge: patient.personalInformation?.age || 20, // Replace with actual patient age field
-     });
-  } catch (error:any) {
+    });
+  } catch (error: any) {
     console.error('Error retrieving patient reports:', error);
     return res.status(500).json({
       success: false,
@@ -1411,25 +1414,25 @@ const getPatientReports = async (req:any, res:any) => {
 };
 
 // Get a specific report by ID
-const getReportById = async (req:any, res:any) => {
+const getReportById = async (req: any, res: any) => {
   try {
     const { reportId } = req.params;
-    
+
     const report = await MoodProgressReport.findById(reportId);
-    
+
     if (!report) {
       return res.status(404).json({
         success: false,
         message: 'Report not found'
       });
     }
-    
+
     return res.status(200).json({
       success: true,
       message: 'Report retrieved successfully',
       data: report
     });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error retrieving report:', error);
     return res.status(500).json({
       success: false,
@@ -1439,8 +1442,121 @@ const getReportById = async (req:any, res:any) => {
   }
 };
 
-export {test, getVerifiedDoctors, bookAppointment, getBookedAppointments, submitPatientPersonalDetails , getPatientDetails , updatePatientPersonalDetails , moodLogging , getTodayMood, getMoodsForLast15Days ,
+
+
+// Controller to handle appointment rescheduling
+const rescheduleAppointment = async (req: any, res: any) => {
+  try {
+    const { appointmentId, patientId, date, time } = req.body;
+
+    // Validate required fields
+    if (!appointmentId || !patientId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: appointmentId, patientId, or patient"
+      });
+    }
+
+    // Find the appointment to get doctorId and patient email
+    const appointment = await Appointment.findOne({ appointmentId });
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found"
+      });
+    }
+
+    const doctorId = appointment.doctorId;
+
+    // Get patient email from database
+    const patientDoc = await Patient.findOne({ userId: patientId });
+    if (!patientDoc || !patientDoc.email) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient email not found"
+      });
+    }
+
+    const patientEmail = patientDoc.email;
+
+    // Delete the appointment from the main Appointment collection
+    await Appointment.findOneAndDelete({ appointmentId });
+
+    // Remove appointment from patient's upcoming appointments
+    await Patient.updateOne(
+      { userId: patientId },
+      {
+        $pull: {
+          "appointments.upcoming": { appointmentId }
+        }
+      }
+    );
+
+    // Remove appointment from doctor's appointments array
+    await Doctor.updateOne(
+      { userId: doctorId },
+      {
+        $pull: {
+          appointments: { appointmentId }
+        }
+      }
+    );
+
+    
+    // Create the rebooking link
+    const rebookingLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/patient/doctor-details-rebooking?appointmentId=${appointmentId}&patientId=${patientId}&doctorId=${doctorId}`;
+
+    // Email options
+    const emailOptions = {
+      email: patientEmail,
+      subject: "Appointment Cancelled - Please Reschedule",
+      message: `
+Dear ${patientId},
+
+Your appointment scheduled for ${date} at ${time} has been cancelled and needs to be rescheduled.
+
+To book a new appointment slot, please click on the link below:
+${rebookingLink}
+
+This will take you directly to our booking system where you can select a new date and time that works best for you.
+
+We apologize for any inconvenience caused and appreciate your understanding.
+
+Best regards,
+PsyLink Team
+            `
+    };
+
+    // Send the email
+    await sendEmail(emailOptions);
+
+    res.status(200).json({
+      success: true,
+      message: "Appointment cancelled, database updated, and rescheduling email sent successfully",
+      data: {
+        appointmentId,
+        patientEmail,
+        doctorId,
+        rebookingLink
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in reschedule appointment:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to cancel appointment and send rescheduling email",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+};
+
+
+
+export {
+  test, getVerifiedDoctors, bookAppointment, getBookedAppointments, submitPatientPersonalDetails, getPatientDetails, updatePatientPersonalDetails, moodLogging, getTodayMood, getMoodsForLast15Days,
   createMoodProgressReport,
   getPatientReports,
-  getReportById
+  getReportById, rescheduleAppointment
 }
