@@ -8,6 +8,7 @@ import Patient from '../models/PatientModel';
 import User from '../models/UserModel';
 import Appointment from '../models/AppointmentModel';
 import mongoose from 'mongoose';
+const sendEmail = require("../utils/sendEmail");
 
 // Initialize Stripe with your test secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -199,29 +200,88 @@ const confirmPayment = async (req: any, res: any) => {
 
     // Update the doctor's availability slots for this date and time
     // Add this after your findOneAndUpdate call in confirmPayment
-const updatedDoctor = await Doctor.findOneAndUpdate(
-  { userId: doctorId },
-  {
-    $set: {
-      "availability.$[dateElem].slots.$[timeElem].status": "booked",
-      "availability.$[dateElem].slots.$[timeElem].bookedBy": patientId
-    }
-  },
-  {
-    arrayFilters: [
-      { "dateElem.date": date },
-      { "timeElem.time": time }
-    ],
-    new: true
-  }
-);
+    const updatedDoctor = await Doctor.findOneAndUpdate(
+      { userId: doctorId },
+      {
+        $set: {
+          "availability.$[dateElem].slots.$[timeElem].status": "booked",
+          "availability.$[dateElem].slots.$[timeElem].bookedBy": patientId
+        }
+      },
+      {
+        arrayFilters: [
+          { "dateElem.date": date },
+          { "timeElem.time": time }
+        ],
+        new: true
+      }
+    );
 
-   // Debug: Check if update worked
-console.log("Update successful:", !!updatedDoctor);
-console.log("Updated slot status:", JSON.stringify(
-  updatedDoctor?.availability.find(a => a.date === date)?.slots.find(s => s.time === time),
-  null, 2
-));
+    // Debug: Check if update worked
+    console.log("Update successful:", !!updatedDoctor);
+    console.log("Updated slot status:", JSON.stringify(
+      updatedDoctor?.availability.find(a => a.date === date)?.slots.find(s => s.time === time),
+      null, 2
+    ));
+
+
+    // send email
+    // Add this code after the appointment.save() and before the final response
+
+    // Get email addresses
+    const patientEmail = patient.email || userPatient.email;
+    const doctorEmail = doctor.email || userDoctor.email;
+
+    // Email to Patient
+    const patientEmailOptions = {
+      email: patientEmail,
+      subject: "Appointment Confirmed - Booking Successful",
+      message: `
+Dear ${patientName},
+
+Your appointment has been successfully confirmed!
+
+Appointment Details:
+- Date: ${date}
+- Time: ${time}
+- Doctor: ${doctorName}
+- Appointment ID: ${appointmentId}
+- Payment Status: Paid
+
+Please arrive 5 minutes before your scheduled time.
+
+Best regards,
+PsyLink Team
+  `
+    };
+
+    // Email to Doctor
+    const doctorEmailOptions = {
+      email: doctorEmail,
+      subject: "New Appointment Booked - Patient Confirmed",
+      message: `
+Dear Dr. ${doctorName},
+
+You have a new appointment booking confirmed.
+
+Appointment Details:
+- Date: ${date}
+- Time: ${time}
+- Patient: ${patientName}
+- Appointment ID: ${appointmentId}
+- Payment Status: Paid
+
+Please prepare for your upcoming session.
+
+Best regards,
+PsyLink Team
+  `
+    };
+
+    // Send emails to both patient and doctor
+    await sendEmail(patientEmailOptions);
+    await sendEmail(doctorEmailOptions);
+
 
     res.status(200).json({
       success: true,
@@ -237,7 +297,7 @@ console.log("Updated slot status:", JSON.stringify(
 
 const getPaymentsForDoctor = async (req: any, res: any) => {
   try {
-    const doctorId  = req.user._id;
+    const doctorId = req.user._id;
 
     // First get the payments without population
     const payments = await Payment.find({ doctorId }).sort({ createdAt: -1 });
@@ -256,7 +316,7 @@ const getPaymentsForDoctor = async (req: any, res: any) => {
 
       if (patient) {
         // Create a copy of personalInformation without the image
-        const { image, ...personalInfoWithoutImage } = patient.personalInformation as { image?: string; [key: string]: any };
+        const { image, ...personalInfoWithoutImage } = patient.personalInformation as { image?: string;[key: string]: any };
 
         enhancedPayment.patientData = {
           _id: patient._id,
@@ -297,8 +357,8 @@ const getAllPayments = async (req: any, res: any) => {
     // Get payments with pagination
     const payments = await Payment.find()
       .sort({ createdAt: -1 })
-      //.skip(skip)
-      //.limit(limit);
+    //.skip(skip)
+    //.limit(limit);
 
     // Create an array to store simplified payment data
     const simplifiedPayments = [];
@@ -307,10 +367,10 @@ const getAllPayments = async (req: any, res: any) => {
     for (const payment of payments) {
       // Get doctor name from Doctor model
       const doctor = await User.findById(payment.doctorId, 'name');
-      
+
       // Get patient name from User model (not Patient)
       const user = await User.findById(payment.patientId, 'name');
-      
+
       // Create a simplified payment object
       const simplifiedPayment = {
         _id: payment._id,
@@ -350,9 +410,9 @@ const getPaymentDetails = async (req: any, res: any) => {
 
     // Validate if paymentId is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(paymentId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid payment ID format' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payment ID format'
       });
     }
 
@@ -360,15 +420,15 @@ const getPaymentDetails = async (req: any, res: any) => {
     const payment = await Payment.findById(paymentId);
 
     if (!payment) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Payment not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
       });
     }
 
     // Get doctor information including bank account
     const doctor = await Doctor.findOne({ userId: payment.doctorId });
-    
+
     // Get patient information
     const patient = await Patient.findOne({ userId: payment.patientId });
 
@@ -394,9 +454,9 @@ const getPaymentDetails = async (req: any, res: any) => {
     });
   } catch (error) {
     console.error('Error retrieving payment details:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to retrieve payment details' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve payment details'
     });
   }
 };
@@ -428,4 +488,4 @@ const getPaymentsByPatient = async (req: any, res: any) => {
 
 
 
-export { createPaymentIntent, confirmPayment, getPaymentsForDoctor, getPaymentsByPatient , getAllPayments,getPaymentDetails };
+export { createPaymentIntent, confirmPayment, getPaymentsForDoctor, getPaymentsByPatient, getAllPayments, getPaymentDetails };

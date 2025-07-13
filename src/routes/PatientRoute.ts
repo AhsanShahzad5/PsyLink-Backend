@@ -1,6 +1,6 @@
 import express from "express";
 import { submitPersonalDetails, test } from "../controllers/DoctorController";
-import {moodLogging, addNote, bookAppointment, getPrescriptionById, deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete, getTodayMood, getMoodsForLast15Days, getPatientPrescriptions, saveReview, getPreviousPrograms, createMoodProgressReport, getPatientReports, getReportById, getHistoryAppointments } from "../controllers/PatientController";
+import {moodLogging, addNote, bookAppointment, getPrescriptionById, deleteNote,  editNote,  getAllNotes,  getVerifiedDoctors, getBookedAppointments, applyProgram, getPatientDetails, updatePatientPersonalDetails, submitPatientPersonalDetails, getOngoingPrograms, markTaskComplete, getTodayMood, getMoodsForLast15Days, getPatientPrescriptions, saveReview, getPreviousPrograms, createMoodProgressReport, getPatientReports, getReportById, getHistoryAppointments, rescheduleAppointment } from "../controllers/PatientController";
 const {isAuthenticated,authorizeRoles} = require("../middlewares/auth")
 
 const router = express.Router();
@@ -32,6 +32,7 @@ router.get('/getMoodHistory',isAuthenticated, getMoodsForLast15Days);
 router.post('/createMoodProgressReport',isAuthenticated, createMoodProgressReport);
 router.get('/getPatientReports',isAuthenticated, getPatientReports);
 router.get('/getReportById/:reportId',isAuthenticated, getReportById);
+router.post('/reschedule-appointment', rescheduleAppointment);
 
 
 router.post('/reviews/save', isAuthenticated, saveReview);
