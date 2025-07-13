@@ -192,7 +192,7 @@ const confirmPayment = async (req: any, res: any) => {
       date,
       time,
       status: 'confirmed',
-      isAnonymous,
+      isAnonymous : isAnonymous,
     });
 
     await patient.save();

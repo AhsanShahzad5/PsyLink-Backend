@@ -431,6 +431,7 @@ export const getHistoryAppointments = async (req: any, res: any) => {
             rating: appointmentDetails.rating || 0,
             review: appointmentDetails.review || "",
             status: prevAppointment.status,
+            isAnonymous: prevAppointment.isAnonymous,
             imageUrl: doctor.clinic?.image || "/src/assets/patient/doctor/doctor.png", // Default image if not available
           };
 
